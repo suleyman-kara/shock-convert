@@ -29,6 +29,12 @@ shock-convert register | unregister      # yalnızca sağ tık menüsünü yaz /
 shock-convert install | uninstall        # kurulum / tam kaldırma
 ```
 
+## Sorun giderme
+
+Sağ tıkla başlatılan süreçte konsol olmadığı için hatalar `%LOCALAPPDATA%\ShockConvert\log.txt` dosyasına yazılır.
+Bir şey çalışmıyorsa `powershell -ExecutionPolicy Bypass -File .\diagnose.ps1` çalıştırın: kayıt defterini,
+dönüştürmeyi ve çoklu seçim benzetimini dener, raporu panoya kopyalar.
+
 ## Dönüştürme kuralları
 
 | Konu | Davranış |

@@ -15,9 +15,9 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 ## Dönüştürme
 - [ ] `Fotoğraf Bir.png` ▸ JPG: aynı klasörde `Fotoğraf Bir-jpg.jpg` oluştu, bildirim çıktı, siyah konsol penceresi **açılmadı**.
 - [ ] Aynı işlemi tekrarlayınca `... (1).jpg` oluştu, ilki bozulmadı.
-- [ ] **Çoklu seçim:** 5–20 dosya seçip aynı formata çevir. Hepsi dönüştü ve **tek** bildirim çıktı.
-      (Beklenmedik: yalnızca ilk dosya işleniyorsa `MultiSelectModel=Player` + `%*` varsayımı bozuk demektir;
-      `crates/cli/src/platform/windows.rs` içindeki `register` düzeltilmeli.)
+- [ ] **Çoklu seçim:** 5–15 dosya seçip aynı formata çevir. Hepsi dönüştü ve **tek** bildirim çıktı
+      (Explorer her dosya için ayrı süreç başlatır; `shell-run` bunları tek toplu işe birleştirir).
+      Not: klasik menüde 15'ten fazla dosya seçilirse Explorer menüyü hiç göstermeyebilir.
 - [ ] Boşluklu / Türkçe karakterli dosya adları doğru işlendi (çoklu seçimde de).
 - [ ] Bozuk bir `.png` (ör. metin dosyasını yeniden adlandır) ▸ hata bildirimi, yarım çıktı yok.
 - [ ] Telefon fotoğrafı (EXIF yönlü) doğru dönük çıktı.

@@ -87,10 +87,6 @@ pub fn register(exe: &Path, entries: &[Entry]) -> Result<(), String> {
         parent
             .set_value("SubCommands", &"")
             .map_err(|e| e.to_string())?;
-        // Seçili tüm dosyalar tek süreçte işlensin (tek bildirim).
-        parent
-            .set_value("MultiSelectModel", &"Player")
-            .map_err(|e| e.to_string())?;
 
         for (idx, entry) in entries.iter().enumerate().filter(|(_, e)| e.accepts(ext)) {
             let key_name = format!("{idx:02}-{}", entry.id.replace([':', '\\', '/'], "_"));
@@ -99,10 +95,10 @@ pub fn register(exe: &Path, entries: &[Entry]) -> Result<(), String> {
                 .map_err(|e| e.to_string())?;
             item.set_value("MUIVerb", &entry.label)
                 .map_err(|e| e.to_string())?;
-            item.set_value("MultiSelectModel", &"Player")
-                .map_err(|e| e.to_string())?;
             let (cmd, _) = item.create_subkey("command").map_err(|e| e.to_string())?;
-            cmd.set_value("", &format!("\"{exe}\" run \"{}\" %*", entry.id))
+            // Standart "%1": Explorer çoklu seçimde her dosya için ayrı süreç başlatır,
+            // `shell-run` bunları tek toplu işe birleştirir.
+            cmd.set_value("", &format!("\"{exe}\" shell-run \"{}\" \"%1\"", entry.id))
                 .map_err(|e| e.to_string())?;
         }
     }
