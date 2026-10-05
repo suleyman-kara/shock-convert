@@ -22,9 +22,17 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 - [ ] Bozuk bir `.png` (ör. metin dosyasını yeniden adlandır) ▸ hata bildirimi, yarım çıktı yok.
 - [ ] Telefon fotoğrafı (EXIF yönlü) doğru dönük çıktı.
 
+## Ses / video / preset
+- [ ] ffmpeg kurulu değilken bir `.mp4` ▸ MP3: bildirimde `winget install Gyan.FFmpeg` yönlendirmesi çıkıyor.
+- [ ] `winget install Gyan.FFmpeg` sonrası (yeni terminal/oturum) `.mp4` ▸ MP3 ve `.mp4` ▸ WebM çalışıyor; başta "dönüştürülüyor…" bildirimi, sonda tamamlandı bildirimi var.
+- [ ] `.mp3` dosyasında video preset'leri (MP4/WebM/GIF) görünmüyor; `.mp4`'te MP3/WAV/FLAC/OGG/M4A görünüyor.
+- [ ] `shock-convert presets` dosya yolunu yazdı; dosyaya örnekteki `web-jpg` preset'ini açıp `shock-convert register` sonrası menüde göründü ve `foto-web.jpg` üretti.
+- [ ] Bozuk bir `.mp4` (metin dosyasını yeniden adlandır) ▸ MP3: hata bildirimi, çıktı dosyası kalmadı.
+
 ## Kurulum / kaldırma
 - [ ] Kurulum sonrası yönetici sorusu çıkmadı; Ayarlar ▸ Uygulamalar'da "Shock Convert" var.
 - [ ] Explorer'ı yeniden başlatmadan menü görünüyor.
+- [ ] Kaldırınca `%LOCALAPPDATA%\ShockConvert` (günlük) da silindi; `%APPDATA%\ShockConvert\presets.toml` (kullanıcı verisi) kaldı.
 - [ ] Kaldırınca: menü kayboldu; `%LOCALAPPDATA%\Programs\ShockConvert` silindi;
       `reg query "HKCU\Software\Classes\SystemFileAssociations\.png"` anahtar bulamıyor;
       `reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert` bulamıyor.

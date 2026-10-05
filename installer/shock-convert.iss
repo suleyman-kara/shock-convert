@@ -41,4 +41,6 @@ Filename: "{app}\shock-convert.exe"; Parameters: "unregister"; Flags: runhidden;
 [UninstallDelete]
 ; Kullanıcının sonradan eklediği eklentiler dahil klasör tamamen kalksın.
 Type: filesandordirs; Name: "{app}"
+; Günlük dosyası. Kullanıcı preset'leri ({userappdata}\ShockConvert\presets.toml) kullanıcı verisidir, silinmez.
+Type: filesandordirs; Name: "{localappdata}\ShockConvert"
 

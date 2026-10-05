@@ -10,7 +10,7 @@ use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageReader, Rgba, Rg
 use crate::format::Format;
 use crate::output::unique_output_path;
 
-const JPEG_QUALITY: u8 = 90;
+pub const DEFAULT_JPEG_QUALITY: u8 = 90;
 const ICO_SIZES: [u32; 6] = [16, 32, 48, 64, 128, 256];
 
 #[derive(Debug, thiserror::Error)]
@@ -21,12 +21,49 @@ pub enum ConvertError {
     Image(#[from] image::ImageError),
 }
 
-/// `input` dosyasını `target` formatına çevirip yanına `ad-format.format` olarak yazar.
-/// Yazılan dosyanın yolunu döndürür. Hata olursa yarım kalan çıktı silinir.
+/// Dönüştürme ayarları (preset'lerden gelir).
+#[derive(Debug, Clone)]
+pub struct Options {
+    /// JPG kalitesi, 1–100.
+    pub jpeg_quality: u8,
+    /// Verilirse görüntü bu kutuya sığacak şekilde küçültülür (oran korunur, asla büyütülmez).
+    pub max_size: Option<(u32, u32)>,
+    /// Şeffaf alanın JPG'de oturtulacağı renk (RGB).
+    pub background: [u8; 3],
+    /// Dosya adına eklenen ek (`foto-<ek>.<uzantı>`). Boşsa hedef formatın uzantısı kullanılır.
+    pub suffix: Option<String>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options {
+            jpeg_quality: DEFAULT_JPEG_QUALITY,
+            max_size: None,
+            background: [255, 255, 255],
+            suffix: None,
+        }
+    }
+}
+
+/// Varsayılan ayarlarla dönüştürür. Bkz. [`convert_file_with`].
 pub fn convert_file(input: &Path, target: Format) -> Result<PathBuf, ConvertError> {
-    let img = load(input)?;
-    let out = unique_output_path(input, target.ext(), target.ext())?;
-    match write(&img, &out, target) {
+    convert_file_with(input, target, &Options::default())
+}
+
+/// `input` dosyasını `target` formatına çevirip yanına `ad-ek.format` olarak yazar.
+/// Yazılan dosyanın yolunu döndürür. Hata olursa yarım kalan çıktı silinir.
+pub fn convert_file_with(
+    input: &Path,
+    target: Format,
+    opts: &Options,
+) -> Result<PathBuf, ConvertError> {
+    let mut img = load(input)?;
+    if let Some((mw, mh)) = opts.max_size {
+        img = shrink_to_fit(img, mw, mh);
+    }
+    let suffix = opts.suffix.as_deref().unwrap_or(target.ext());
+    let out = unique_output_path(input, suffix, target.ext())?;
+    match write(&img, &out, target, opts) {
         Ok(()) => Ok(out),
         Err(e) => {
             let _ = std::fs::remove_file(&out);
@@ -45,12 +82,17 @@ fn load(input: &Path) -> Result<DynamicImage, ConvertError> {
     Ok(img)
 }
 
-fn write(img: &DynamicImage, out: &Path, target: Format) -> Result<(), ConvertError> {
+fn write(
+    img: &DynamicImage,
+    out: &Path,
+    target: Format,
+    opts: &Options,
+) -> Result<(), ConvertError> {
     match target {
         Format::Jpg => {
-            let rgb = flatten_on_white(img);
+            let rgb = flatten_on(img, opts.background);
             let w = BufWriter::new(File::create(out)?);
-            JpegEncoder::new_with_quality(w, JPEG_QUALITY).encode_image(&rgb)?;
+            JpegEncoder::new_with_quality(w, opts.jpeg_quality.clamp(1, 100)).encode_image(&rgb)?;
         }
         Format::Ico => write_ico(img, out)?,
         Format::Gif | Format::Bmp => {
@@ -63,12 +105,22 @@ fn write(img: &DynamicImage, out: &Path, target: Format) -> Result<(), ConvertEr
     Ok(())
 }
 
-/// Şeffaf alanı beyaza oturtur (JPG şeffaflık desteklemez).
-fn flatten_on_white(img: &DynamicImage) -> DynamicImage {
+/// Şeffaf alanı verilen renge oturtur (JPG şeffaflık desteklemez).
+fn flatten_on(img: &DynamicImage, [r, g, b]: [u8; 3]) -> DynamicImage {
     let rgba = img.to_rgba8();
-    let mut bg = RgbaImage::from_pixel(rgba.width(), rgba.height(), Rgba([255, 255, 255, 255]));
+    let mut bg = RgbaImage::from_pixel(rgba.width(), rgba.height(), Rgba([r, g, b, 255]));
     image::imageops::overlay(&mut bg, &rgba, 0, 0);
     DynamicImage::ImageRgba8(bg).to_rgb8().into()
+}
+
+/// Görüntüyü `max_w`×`max_h` kutusuna sığdırır; 0 "sınırsız" demektir. Büyütme yapmaz.
+fn shrink_to_fit(img: DynamicImage, max_w: u32, max_h: u32) -> DynamicImage {
+    let mw = if max_w == 0 { u32::MAX } else { max_w };
+    let mh = if max_h == 0 { u32::MAX } else { max_h };
+    if img.width() <= mw && img.height() <= mh {
+        return img;
+    }
+    img.resize(mw, mh, FilterType::Lanczos3)
 }
 
 /// 16–256 px arası çoklu boyutlu ICO üretir; kaynaktan büyük boyutlar eklenmez.
@@ -161,6 +213,66 @@ mod tests {
         fs::write(&bad, b"bu bir png degil").unwrap();
         assert!(convert_file(&bad, Format::Jpg).is_err());
         assert!(!d.join("bozuk-jpg.jpg").exists());
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn resize_keeps_aspect_and_never_upscales() {
+        let d = temp_dir("resize");
+        let input = sample_png(&d); // 64x48
+        let small = Options {
+            max_size: Some((32, 32)),
+            suffix: Some("kucuk".into()),
+            ..Options::default()
+        };
+        let out = convert_file_with(&input, Format::Png, &small).unwrap();
+        assert_eq!(out.file_name().unwrap().to_string_lossy(), "kare-kucuk.png");
+        let img = image::open(&out).unwrap();
+        assert_eq!((img.width(), img.height()), (32, 24));
+
+        let huge = Options {
+            max_size: Some((1000, 0)),
+            ..Options::default()
+        };
+        let out = convert_file_with(&input, Format::Jpg, &huge).unwrap();
+        let img = image::open(out).unwrap();
+        assert_eq!((img.width(), img.height()), (64, 48));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn lower_jpeg_quality_gives_smaller_file_and_background_applies() {
+        let d = temp_dir("quality");
+        let mut noisy = RgbaImage::new(128, 128);
+        for (x, y, p) in noisy.enumerate_pixels_mut() {
+            *p = Rgba([(x * 7 + y * 13) as u8, (x * 3) as u8, (y * 5) as u8, 255]);
+        }
+        let input = d.join("gurultu.png");
+        noisy.save(&input).unwrap();
+        let size = |q| {
+            let o = Options {
+                jpeg_quality: q,
+                suffix: Some(format!("q{q}")),
+                ..Options::default()
+            };
+            fs::metadata(convert_file_with(&input, Format::Jpg, &o).unwrap())
+                .unwrap()
+                .len()
+        };
+        assert!(size(20) < size(95));
+
+        let clear = d.join("seffaf.png");
+        RgbaImage::new(32, 32).save(&clear).unwrap();
+        let black = Options {
+            background: [0, 0, 0],
+            ..Options::default()
+        };
+        let px = image::open(convert_file_with(&clear, Format::Jpg, &black).unwrap())
+            .unwrap()
+            .to_rgb8()
+            .get_pixel(16, 16)
+            .0;
+        assert!(px.iter().all(|&c| c < 15), "arka plan siyah olmalı: {px:?}");
         let _ = fs::remove_dir_all(&d);
     }
 }

@@ -167,8 +167,8 @@ pub fn install() -> Result<(), String> {
         copy_dir(&src_plugins, &dir.join("plugins")).map_err(|e| e.to_string())?;
     }
 
-    let (plugins, _) = crate::plugins::load_all(&dir.join("plugins"));
-    register(&dest, &crate::menu::build(&plugins))?;
+    register(&dest, &crate::entries_for(&dir.join("plugins")))?;
+    let _ = crate::presets::ensure_sample();
 
     let (k, _) = hkcu()
         .create_subkey(UNINSTALL_KEY)
@@ -192,6 +192,10 @@ pub fn install() -> Result<(), String> {
 pub fn uninstall() -> Result<(), String> {
     unregister()?;
     let _ = hkcu().delete_subkey_all(UNINSTALL_KEY);
+    // Günlük klasörü (%LOCALAPPDATA%\ShockConvert). Kullanıcı preset'leri (%APPDATA%) kullanıcı verisidir, korunur.
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        let _ = std::fs::remove_dir_all(PathBuf::from(local).join("ShockConvert"));
+    }
     let dir = install_dir()?;
     if dir.exists() {
         let wide_ok = dir.as_os_str().encode_wide().all(|c| c != u16::from(b'"'));

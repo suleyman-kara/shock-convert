@@ -5,9 +5,10 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use shock_convert_core::{Format, convert_file, unique_output_path};
+use shock_convert_core::{Format, Options, convert_file_with, unique_output_path};
 
-use crate::menu::{Action, Entry};
+use crate::ffmpeg;
+use crate::menu::{Action, Entry, FfmpegJob};
 use crate::plugins::PluginEntry;
 
 #[derive(Debug, Default)]
@@ -51,8 +52,14 @@ impl Report {
 pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
     let report = Mutex::new(Report::default());
     let next = AtomicUsize::new(0);
+    // ffmpeg kendi içinde çok çekirdek kullanır; üst üste fazla süreç başlatma.
+    let cap = match entry.action {
+        Action::Ffmpeg(_) => 2,
+        _ => usize::MAX,
+    };
     let workers = std::thread::available_parallelism()
         .map_or(2, |n| n.get())
+        .min(cap)
         .min(files.len().max(1));
 
     std::thread::scope(|scope| {
@@ -90,7 +97,8 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
         return Outcome::Skipped;
     }
     let result = match &entry.action {
-        Action::Builtin(target) => convert_builtin(file, *target),
+        Action::Image { format, options } => convert_image(file, *format, options),
+        Action::Ffmpeg(job) => run_ffmpeg(file, job),
         Action::Plugin(p) => run_plugin(p, file),
     };
     match result {
@@ -99,8 +107,18 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
     }
 }
 
-fn convert_builtin(file: &Path, target: Format) -> Result<PathBuf, String> {
-    convert_file(file, target).map_err(|e| e.to_string())
+fn convert_image(file: &Path, target: Format, options: &Options) -> Result<PathBuf, String> {
+    convert_file_with(file, target, options).map_err(|e| e.to_string())
+}
+
+fn run_ffmpeg(file: &Path, job: &FfmpegJob) -> Result<PathBuf, String> {
+    ffmpeg::run(
+        job.ffmpeg_path.as_deref(),
+        &job.args,
+        &job.suffix,
+        &job.output_ext,
+        file,
+    )
 }
 
 fn run_plugin(p: &PluginEntry, input: &Path) -> Result<PathBuf, String> {
