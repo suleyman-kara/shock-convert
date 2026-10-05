@@ -84,7 +84,7 @@ if ($cmdKey) {
 # 6) Gunluk
 Say ""
 Say "--- Gunluk: $log ---"
-if (Test-Path $log) { Get-Content $log -Tail 60 | ForEach-Object { Say $_ } } else { Say "gunluk dosyasi olusmadi (exe hic calismamis olabilir)" }
+if (Test-Path $log) { Get-Content $log -Tail 60 -Encoding UTF8 | ForEach-Object { Say $_ } } else { Say "gunluk dosyasi olusmadi (exe hic calismamis olabilir)" }
 
 # 7) Surum / Windows Defender engeli ipucu
 Say ""
