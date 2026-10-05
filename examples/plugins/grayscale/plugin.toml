@@ -1,0 +1,12 @@
+# Örnek eklenti: gri tonlamaya çevirir. Python ve Pillow gerektirir (pip install pillow).
+# Kullanmak için bu klasörü kurulum dizinindeki `plugins\` altına kopyalayıp
+# `shock-convert register` çalıştırın.
+name = "grayscale"
+
+[[entry]]
+id = "gray"
+label = "Gri tonlama (PNG)"
+extensions = ["png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"]
+output_suffix = "gri"
+output_ext = "png"
+command = ["python", "{plugin_dir}/grayscale.py", "{input}", "{output}"]
