@@ -1,12 +1,14 @@
 # Shock Convert
 
-Windows'ta görüntü dosyalarına **sağ tıklayıp** istediğiniz formata çeviren küçük ve hızlı bir araç.
+Windows'ta görüntü, ses ve video dosyalarına **sağ tıklayıp** istediğiniz formata çeviren küçük ve hızlı bir araç.
 
 ```
 foto.png  ──sağ tık──▶  Shock Convert ▸ JPG   ──▶  foto-jpg.jpg  (aynı klasörde)
 ```
 
-- Formatlar: **PNG, JPG, WebP, BMP, GIF, TIFF, ICO** (girdi olarak `jpeg`, `jfif`, `tif` uzantıları da tanınır)
+- Görüntü: **PNG, JPG, WebP, BMP, GIF, TIFF, ICO** (girdi olarak `jpeg`, `jfif`, `tif` uzantıları da tanınır). Süreç içinde, harici program başlatmadan dönüştürülür.
+- Ses/video: **MP3, WAV, FLAC, OGG, M4A, MP4, WebM, GIF (videodan)**. Bunlar için [ffmpeg](https://ffmpeg.org) gerekir (aşağıya bakın).
+- Kendi **preset**'lerinizi `presets.toml` ile ekleyin: "web için 1920px JPG", "720p MP4" gibi.
 - Birden fazla dosya seçilebilir; hepsi tek seferde, paralel işlenir ve tek bildirim gösterilir.
 - Çıktı kaynağın yanına `ad-format.format` olarak yazılır. Ad doluysa `ad-format (1).format` olur, **mevcut dosyanın üzerine asla yazılmaz**.
 - Yönetici hakkı gerekmez (her şey kullanıcı profiline kurulur). Windows 10 ve Windows 11'in klasik menüsünde ("Daha fazla seçenek göster") görünür.
@@ -20,10 +22,46 @@ foto.png  ──sağ tık──▶  Shock Convert ▸ JPG   ──▶  foto-jpg.
 
 > Menü, exe'nin bulunduğu yolu gösterir. Bu yüzden exe'yi kurulumdan sonra taşımayın; taşırsanız tekrar `install` çalıştırın.
 
+## ffmpeg (ses/video için)
+
+ffmpeg paketlenmez. Şu sırayla aranır: `presets.toml` içindeki `ffmpeg_path`, kurulum klasöründeki `ffmpeg\ffmpeg.exe`, `PATH`.
+En kolay kurulum: `winget install Gyan.FFmpeg`. Bulunamazsa bildirimde bu komut gösterilir. Görüntü dönüştürme ffmpeg gerektirmez.
+
+## Preset'ler
+
+`shock-convert presets` dosya yolunu yazar ve yoksa açıklamalı bir örnek oluşturur (`%APPDATA%\ShockConvert\presets.toml`).
+Düzenledikten sonra `shock-convert register` ile menüyü yenileyin. Yerleşik preset'ler her zaman vardır; aynı `id` ile ezilebilir, `hide = [...]` ile gizlenebilir.
+
+```toml
+[[preset]]
+id = "web-jpg"
+label = "JPG (web, 1920px)"
+kind = "image"            # image | ffmpeg
+output = "jpg"
+input = ["image"]         # gruplar: image, audio, video, media; ya da tek tek uzantılar
+suffix = "web"            # foto.png -> foto-web.jpg
+quality = 80
+max_width = 1920          # oran korunur, asla büyütülmez
+background = "#ffffff"    # şeffaf alanın JPG'deki rengi
+
+[[preset]]
+id = "mp4-720p"
+label = "MP4 (720p)"
+kind = "ffmpeg"
+output = "mp4"
+input = ["video"]
+suffix = "720p"
+args = ["-vf", "scale=-2:720", "-c:v", "libx264", "-crf", "26", "-c:a", "aac"]
+```
+
+Bir preset, çıktısıyla aynı uzantıdaki dosyada yalnızca küçültme (`max_width`/`max_height`) veya `suffix` tanımlıysa görünür
+(düz "MP4 → MP4" anlamsızdır, "MP4 → 720p MP4" anlamlıdır).
+
 ## Komut satırı
 
 ```
 shock-convert list                       # menü girdileri
+shock-convert presets                    # presets.toml yolu (yoksa örneği oluşturur)
 shock-convert run jpg a.png b.webp       # dosyaları JPG'ye çevir
 shock-convert register | unregister      # yalnızca sağ tık menüsünü yaz / sil
 shock-convert install | uninstall        # kurulum / tam kaldırma
@@ -44,6 +82,8 @@ dönüştürmeyi ve çoklu seçim benzetimini dener, raporu panoya kopyalar.
 | EXIF yönü | Uygulanır (telefon fotoğrafları doğru döner) |
 | ICO | 16–256 px çoklu boyut; kaynaktan büyük boyutlar eklenmez, oran korunur |
 | Animasyonlu GIF/WebP | Yalnızca ilk kare |
+| Ses/video | ffmpeg ile; en fazla 2 dosya paralel (ffmpeg zaten çok çekirdek kullanır). Başlarken "dönüştürülüyor…" bildirimi çıkar. İlerleme çubuğu yok |
+| Hız | Görüntülerde kazanç süreç içi dönüştürme ve hızlı başlangıçtan gelir. Ses/video süresini ffmpeg belirler, bu araç onu hızlandırmaz |
 | Bozuk dosya | Hata bildirimi gösterilir, yarım çıktı bırakılmaz |
 
 ## Eklentiler (upscale vb. için)
@@ -76,8 +116,8 @@ cargo check --workspace --target x86_64-pc-windows-gnu  # Windows kodunu Linux't
 ```
 
 ```
-crates/core   dönüştürme mantığı (format, çıktı adlandırma, Pillow'suz saf Rust `image` crate'i)
-crates/cli    shock-convert.exe: komutlar, menü modeli, eklentiler, kayıt defteri, bildirim
+crates/core   görüntü dönüştürme (format, seçenekler, çıktı adlandırma; Rust `image` crate'i)
+crates/cli    shock-convert.exe: komutlar, preset'ler, ffmpeg, menü modeli, eklentiler, kayıt defteri, bildirim
 installer     Inno Setup betiği
 ```
 

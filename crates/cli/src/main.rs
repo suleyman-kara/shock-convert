@@ -2,10 +2,13 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod batch;
+mod config;
+mod ffmpeg;
 mod log;
 mod menu;
 mod platform;
 mod plugins;
+mod presets;
 mod run;
 
 use std::path::PathBuf;
@@ -16,7 +19,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "shock-convert",
     version,
-    about = "Sağ tıkla görüntü dönüştürücü"
+    about = "Sağ tıkla görüntü, ses ve video dönüştürücü"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -37,6 +40,8 @@ enum Command {
     ShellRun { id: String, file: PathBuf },
     /// Kullanılabilir menü girdilerini listeler
     List,
+    /// Preset dosyasının (presets.toml) yolunu yazar; yoksa açıklamalı örneği oluşturur
+    Presets,
     /// Sağ tık menüsünü kayıt defterine yazar (eklentileri yeniden tarar)
     Register,
     /// Sağ tık menüsünü kayıt defterinden siler
@@ -54,12 +59,20 @@ fn plugins_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("plugins"))
 }
 
-fn load_entries() -> Vec<menu::Entry> {
-    let (plugins, warnings) = plugins::load_all(&plugins_dir());
+/// Preset'ler + `plugins_dir` altındaki eklentilerden menü girdilerini kurar.
+pub(crate) fn entries_for(plugins_dir: &std::path::Path) -> Vec<menu::Entry> {
+    let (settings, mut warnings) = presets::load();
+    let (plugins, plugin_warnings) = plugins::load_all(plugins_dir);
+    warnings.extend(plugin_warnings);
     for w in warnings {
-        eprintln!("uyarı: eklenti atlandı — {w}");
+        log::line(&format!("uyarı: {w}"));
+        eprintln!("uyarı: {w}");
     }
-    menu::build(&plugins)
+    menu::build(&settings, &plugins)
+}
+
+fn load_entries() -> Vec<menu::Entry> {
+    entries_for(&plugins_dir())
 }
 
 fn main() {
@@ -95,6 +108,7 @@ fn main() {
             }
             0
         }
+        Command::Presets => finish_with(presets::ensure_sample().map(|p| p.display().to_string())),
         Command::Register => finish("Menü kaydedildi.", register()),
         Command::Unregister => finish("Menü kaldırıldı.", platform::unregister()),
         Command::Install => finish("Shock Convert kuruldu.", platform::install()),
@@ -105,7 +119,24 @@ fn main() {
 
 fn register() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    // İlk kayıtta açıklamalı örnek presets.toml bırak (varsa dokunma).
+    if let Err(e) = presets::ensure_sample() {
+        log::line(&format!("presets.toml örneği yazılamadı: {e}"));
+    }
     platform::register(&exe, &load_entries())
+}
+
+fn finish_with(result: std::io::Result<String>) -> i32 {
+    match result {
+        Ok(text) => {
+            println!("{text}");
+            0
+        }
+        Err(e) => {
+            eprintln!("hata: {e}");
+            1
+        }
+    }
 }
 
 fn finish(ok_message: &str, result: Result<(), String>) -> i32 {
@@ -143,6 +174,13 @@ fn run(id: &str, files: &[PathBuf]) -> i32 {
         platform::notify("Shock Convert", &format!("Bilinmeyen menü girdisi: {id}"));
         return 2;
     };
+    if matches!(entry.action, menu::Action::Ffmpeg(_)) {
+        // Ses/video uzun sürebilir; başladığını hemen göster.
+        platform::notify(
+            "Shock Convert",
+            &format!("{} dosya → {} dönüştürülüyor…", files.len(), entry.label),
+        );
+    }
     let report = run::run_entry(entry, files);
     let summary = report.summary(entry);
     log::line(&format!("sonuç: {summary}"));
