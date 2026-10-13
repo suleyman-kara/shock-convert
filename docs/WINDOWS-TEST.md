@@ -7,13 +7,14 @@ Hazırlık: `.\build.ps1`, ardından `dist\shock-convert-setup-*.exe` (veya `tar
 Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşluklu ad ve Türkçe karakterli ad dahil: `Fotoğraf Bir.png`).
 
 ## Menü
+- [ ] Shock Convert alt menüsünün solunda şimşek ikonu görünüyor; `shock-convert.exe` dosyasının da ikonu var.
 - [ ] `.png` dosyasına sağ tık ▸ (Win11'de "Daha fazla seçenek göster") **Shock Convert ▸** alt menüsü görünüyor.
 - [ ] Alt menüde PNG **yok**, diğer 6 format var. `.jpg` dosyasında JPG yok.
 - [ ] `.txt` dosyasında menü görünmüyor.
 - [ ] Menüde simge (exe simgesi) görünüyor.
 
 ## Dönüştürme
-- [ ] `Fotoğraf Bir.png` ▸ JPG: aynı klasörde `Fotoğraf Bir-jpg.jpg` oluştu, bildirim çıktı, siyah konsol penceresi **açılmadı**.
+- [ ] `Fotoğraf Bir.png` ▸ JPG: aynı klasörde `Fotoğraf Bir.jpg` oluştu, bildirim çıktı, siyah konsol penceresi **açılmadı**.
 - [ ] Aynı işlemi tekrarlayınca `... (1).jpg` oluştu, ilki bozulmadı.
 - [ ] **Çoklu seçim:** 5–15 dosya seçip aynı formata çevir. Hepsi dönüştü ve **tek** bildirim çıktı
       (Explorer her dosya için ayrı süreç başlatır; `shell-run` bunları tek toplu işe birleştirir).
@@ -22,9 +23,26 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 - [ ] Bozuk bir `.png` (ör. metin dosyasını yeniden adlandır) ▸ hata bildirimi, yarım çıktı yok.
 - [ ] Telefon fotoğrafı (EXIF yönlü) doğru dönük çıktı.
 
+## PDF
+- [ ] `.png` ve `.jpg` ▸ PDF: anında `ad.pdf` oluştu, görüntü tam sayfa.
+- [ ] `.txt` (Türkçe karakterli; ayrıca Not Defteri'nde ANSI kaydedilmiş bir dosya) ▸ PDF: karakterler doğru.
+- [ ] `.md` ve `.html` ▸ PDF çalışıyor ("dönüştürülüyor…" bildirimi, sonra tamamlandı).
+- [ ] LibreOffice **kurulu değilken** gerçek bir `.docx` (başlık, liste, tablo, resim içeren), `.xlsx`, `.pptx` ▸ PDF: içerik okunaklı.
+- [ ] LibreOffice kurulu değilken `.doc` / `.odt` ▸ PDF: bildirimde `winget install TheDocumentFoundation.LibreOffice` yönlendirmesi.
+- [ ] `winget install TheDocumentFoundation.LibreOffice` sonrası aynı `.docx` ▸ PDF: LibreOffice çıktısı (düzen Word'e daha yakın); `.doc`/`.odt` de çalışıyor.
+- [ ] Edge açıkken de PDF dönüştürme çalışıyor (ayrı profil kullanılır).
+
+## Ses / video / preset
+- [ ] ffmpeg kurulu değilken bir `.mp4` ▸ MP3: bildirimde `winget install Gyan.FFmpeg` yönlendirmesi çıkıyor.
+- [ ] `winget install Gyan.FFmpeg` sonrası (yeni terminal/oturum) `.mp4` ▸ MP3 ve `.mp4` ▸ WebM çalışıyor; başta "dönüştürülüyor…" bildirimi, sonda tamamlandı bildirimi var.
+- [ ] `.mp3` dosyasında video preset'leri (MP4/WebM/GIF) görünmüyor; `.mp4`'te MP3/WAV/FLAC/OGG/M4A görünüyor.
+- [ ] `shock-convert presets` dosya yolunu yazdı; dosyaya örnekteki `web-jpg` preset'ini açıp `shock-convert register` sonrası menüde göründü ve `foto-web.jpg` üretti.
+- [ ] Bozuk bir `.mp4` (metin dosyasını yeniden adlandır) ▸ MP3: hata bildirimi, çıktı dosyası kalmadı.
+
 ## Kurulum / kaldırma
 - [ ] Kurulum sonrası yönetici sorusu çıkmadı; Ayarlar ▸ Uygulamalar'da "Shock Convert" var.
 - [ ] Explorer'ı yeniden başlatmadan menü görünüyor.
+- [ ] Kaldırınca `%LOCALAPPDATA%\ShockConvert` (günlük) da silindi; `%APPDATA%\ShockConvert\presets.toml` (kullanıcı verisi) kaldı.
 - [ ] Kaldırınca: menü kayboldu; `%LOCALAPPDATA%\Programs\ShockConvert` silindi;
       `reg query "HKCU\Software\Classes\SystemFileAssociations\.png"` anahtar bulamıyor;
       `reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert` bulamıyor.

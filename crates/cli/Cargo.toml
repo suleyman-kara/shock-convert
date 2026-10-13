@@ -4,12 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
+encoding_rs = "0.8.42"
+pulldown-cmark = "0.13.4"
+quick-xml = "0.42.0"
 serde = { version = "1.0.229", features = ["derive"] }
 shock-convert-core = { version = "0.1.0", path = "../core" }
 toml = "1.1.6"
+zip = { version = "9.0.2", default-features = false, features = ["deflate"] }
 
 [target."cfg(windows)".dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Console", "Win32_UI_Shell", "Win32_System_Threading"] }
 winreg = "0.56.0"
 winrt-notification = "0.5.1"
+
+[build-dependencies]
+winresource = "0.1.34"

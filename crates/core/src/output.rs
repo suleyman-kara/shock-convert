@@ -2,20 +2,26 @@ use std::fs::OpenOptions;
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// `dir/ad-ek.uzanti` yolunu üretir; doluysa `ad-ek (1).uzanti`, `(2)` ... dener.
+/// `dir/ad.uzanti` (ek verilirse `dir/ad-ek.uzanti`) yolunu üretir; doluysa `ad (1).uzanti`,
+/// `(2)` ... dener.
 ///
 /// Seçilen ad, boş bir dosya oluşturularak (`create_new`) atomik biçimde rezerve edilir;
 /// böylece paralel işçiler ya da eşzamanlı çalışan iki süreç aynı adı alıp birbirinin
 /// üzerine yazamaz. Mevcut dosyaların üzerine hiçbir zaman yazılmaz.
-pub fn unique_output_path(input: &Path, suffix: &str, ext: &str) -> io::Result<PathBuf> {
+pub fn unique_output_path(input: &Path, suffix: Option<&str>, ext: &str) -> io::Result<PathBuf> {
     let dir = input.parent().unwrap_or_else(|| Path::new("."));
     let stem = input
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_else(|| "output".into());
 
-    let candidates = std::iter::once(format!("{stem}-{suffix}.{ext}"))
-        .chain((1u32..).map(|n| format!("{stem}-{suffix} ({n}).{ext}")));
+    // Boş ek "ek yok" demektir.
+    let base = match suffix.filter(|s| !s.is_empty()) {
+        Some(sfx) => format!("{stem}-{sfx}"),
+        None => stem,
+    };
+    let candidates = std::iter::once(format!("{base}.{ext}"))
+        .chain((1u32..).map(|n| format!("{base} ({n}).{ext}")));
     for name in candidates {
         let path = dir.join(name);
         match OpenOptions::new().write(true).create_new(true).open(&path) {
@@ -44,16 +50,25 @@ mod tests {
         let d = temp_dir("output");
         let input = d.join("foto.png");
         assert_eq!(
-            unique_output_path(&input, "jpg", "jpg").unwrap(),
-            d.join("foto-jpg.jpg")
+            unique_output_path(&input, None, "jpg").unwrap(),
+            d.join("foto.jpg")
         );
         assert_eq!(
-            unique_output_path(&input, "jpg", "jpg").unwrap(),
-            d.join("foto-jpg (1).jpg")
+            unique_output_path(&input, None, "jpg").unwrap(),
+            d.join("foto (1).jpg")
         );
         assert_eq!(
-            unique_output_path(&input, "jpg", "jpg").unwrap(),
-            d.join("foto-jpg (2).jpg")
+            unique_output_path(&input, None, "jpg").unwrap(),
+            d.join("foto (2).jpg")
+        );
+        // Ek verilirse ada eklenir; boş ek "yok" sayılır.
+        assert_eq!(
+            unique_output_path(&input, Some("web"), "jpg").unwrap(),
+            d.join("foto-web.jpg")
+        );
+        assert_eq!(
+            unique_output_path(&input, Some(""), "png").unwrap(),
+            d.join("foto.png")
         );
         let _ = fs::remove_dir_all(&d);
     }
@@ -64,7 +79,7 @@ mod tests {
         let input = d.join("foto.png");
         let paths: Vec<PathBuf> = std::thread::scope(|s| {
             let hs: Vec<_> = (0..16)
-                .map(|_| s.spawn(|| unique_output_path(&input, "jpg", "jpg").unwrap()))
+                .map(|_| s.spawn(|| unique_output_path(&input, None, "jpg").unwrap()))
                 .collect();
             hs.into_iter().map(|h| h.join().unwrap()).collect()
         });

@@ -26,6 +26,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release
+      - name: İkon ve sürüm bilgisi exe'ye gömülmüş mü
+        shell: pwsh
+        run: |
+          $info = (Get-Item target/release/shock-convert.exe).VersionInfo
+          if ($info.ProductName -ne "Shock Convert") {
+            throw "Kaynak (ikon/surum) exe'ye gomulmemis: ProductName='$($info.ProductName)'"
+          }
+          Write-Host "Gomulu kaynak tamam: $($info.ProductName) $($info.FileVersion)"
       - name: Kurulum sihirbazı (Inno Setup)
         run: |
           choco install innosetup -y --no-progress

@@ -6,7 +6,7 @@
 //! id = "2x"
 //! label = "Upscale 2x"
 //! extensions = ["png", "jpg"]
-//! output_suffix = "2x"
+//! output_suffix = "2x"   # isteğe bağlı; yoksa foto.png -> foto.png ((1) eklenir)
 //! output_ext = "png"
 //! command = ["python", "{plugin_dir}/upscale.py", "{input}", "{output}"]
 //! ```
@@ -27,6 +27,7 @@ struct RawEntry {
     id: String,
     label: String,
     extensions: Vec<String>,
+    #[serde(default)]
     output_suffix: String,
     output_ext: String,
     command: Vec<String>,
