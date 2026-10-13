@@ -72,7 +72,7 @@ pub fn convert_file_with(
 }
 
 /// Dosyayı açar ve EXIF yönünü uygular. Animasyonlu girdilerde ilk kare alınır.
-fn load(input: &Path) -> Result<DynamicImage, ConvertError> {
+pub(crate) fn load(input: &Path) -> Result<DynamicImage, ConvertError> {
     let reader = ImageReader::open(input)?.with_guessed_format()?;
     let mut decoder = reader.into_decoder()?;
     let orientation = decoder.orientation()?;
@@ -105,7 +105,7 @@ fn write(
 }
 
 /// Şeffaf alanı verilen renge oturtur (JPG şeffaflık desteklemez).
-fn flatten_on(img: &DynamicImage, [r, g, b]: [u8; 3]) -> DynamicImage {
+pub(crate) fn flatten_on(img: &DynamicImage, [r, g, b]: [u8; 3]) -> DynamicImage {
     let rgba = img.to_rgba8();
     let mut bg = RgbaImage::from_pixel(rgba.width(), rgba.height(), Rgba([r, g, b, 255]));
     image::imageops::overlay(&mut bg, &rgba, 0, 0);

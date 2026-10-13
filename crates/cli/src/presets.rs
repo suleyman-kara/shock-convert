@@ -15,6 +15,8 @@ pub enum Kind {
     Image,
     /// `ffmpeg` ile (ses/video).
     Ffmpeg,
+    /// PDF'e (görüntü, metin, Office belgeleri; bkz. `pdf` modülü).
+    Pdf,
 }
 
 #[derive(Debug, Clone)]
@@ -40,11 +42,17 @@ pub struct Preset {
 pub struct Settings {
     pub presets: Vec<Preset>,
     pub ffmpeg_path: Option<PathBuf>,
+    pub browser_path: Option<PathBuf>,
+    pub libreoffice_path: Option<PathBuf>,
+    pub pdf_engine: crate::pdf::Engine,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct FileModel {
     ffmpeg_path: Option<String>,
+    browser_path: Option<String>,
+    libreoffice_path: Option<String>,
+    pdf_engine: Option<String>,
     #[serde(default)]
     hide: Vec<String>,
     #[serde(default)]
@@ -70,6 +78,10 @@ struct RawPreset {
 const AUDIO: &[&str] = &[
     "mp3", "wav", "flac", "ogg", "oga", "opus", "m4a", "aac", "wma", "aiff", "aif",
 ];
+const DOCUMENT: &[&str] = &[
+    "docx", "xlsx", "pptx", "doc", "xls", "ppt", "rtf", "odt", "ods", "odp", "txt", "md",
+    "markdown", "html", "htm",
+];
 const VIDEO: &[&str] = &[
     "mp4", "mkv", "avi", "mov", "webm", "wmv", "flv", "m4v", "3gp", "mpg", "mpeg", "ts",
 ];
@@ -87,6 +99,7 @@ fn expand_inputs(items: &[String]) -> Vec<String> {
             "audio" => AUDIO.iter().map(|e| e.to_string()).collect(),
             "video" => VIDEO.iter().map(|e| e.to_string()).collect(),
             "media" => AUDIO.iter().chain(VIDEO).map(|e| e.to_string()).collect(),
+            "document" => DOCUMENT.iter().map(|e| e.to_string()).collect(),
             _ => vec![item],
         };
         for e in group {
@@ -118,6 +131,12 @@ impl RawPreset {
         }
         if self.kind == Kind::Image && Format::from_ext(&output).is_none() {
             return Err(format!("`{}`: `{output}` görüntü formatı değil", self.id));
+        }
+        if self.kind == Kind::Pdf && output != "pdf" {
+            return Err(format!(
+                "`{}`: kind = \"pdf\" için output \"pdf\" olmalı",
+                self.id
+            ));
         }
         let background = match &self.background {
             Some(c) => Some(parse_color(c).ok_or(format!("`{}`: geçersiz renk `{c}`", self.id))?),
@@ -178,6 +197,19 @@ fn ffmpeg_preset(id: &str, label: &str, input: &[&str], args: &[&str]) -> Preset
 /// Yerleşik preset'ler. Menü sırası bu sıradır.
 pub fn defaults() -> Vec<Preset> {
     let mut v: Vec<Preset> = Format::ALL.iter().map(|&f| image_preset(f)).collect();
+    v.push(Preset {
+        id: "pdf".into(),
+        label: "PDF".into(),
+        kind: Kind::Pdf,
+        output: "pdf".into(),
+        input: expand_inputs(&["image".into(), "document".into()]),
+        suffix: None,
+        quality: None,
+        max_width: None,
+        max_height: None,
+        background: None,
+        args: vec![],
+    });
     v.extend([
         ffmpeg_preset(
             "mp3",
@@ -250,15 +282,26 @@ pub fn load() -> (Settings, Vec<String>) {
     let mut warnings = Vec::new();
     let mut presets = defaults();
     let mut ffmpeg_path = None;
+    let (mut browser_path, mut libreoffice_path) = (None, None);
+    let mut pdf_engine = crate::pdf::Engine::default();
 
     let path = config::presets_path();
     if let Ok(text) = std::fs::read_to_string(&path) {
         match toml::from_str::<FileModel>(&text) {
             Ok(file) => {
-                ffmpeg_path = file
-                    .ffmpeg_path
-                    .filter(|p| !p.is_empty())
-                    .map(PathBuf::from);
+                let some_path = |p: Option<String>| p.filter(|p| !p.is_empty()).map(PathBuf::from);
+                ffmpeg_path = some_path(file.ffmpeg_path);
+                browser_path = some_path(file.browser_path);
+                libreoffice_path = some_path(file.libreoffice_path);
+                if let Some(e) = file.pdf_engine.as_deref() {
+                    match crate::pdf::Engine::parse(e) {
+                        Some(engine) => pdf_engine = engine,
+                        None => warnings.push(format!(
+                            "{}: pdf_engine \"{e}\" geçersiz (auto | builtin | libreoffice)",
+                            path.display()
+                        )),
+                    }
+                }
                 for raw in file.preset {
                     match raw.into_preset() {
                         Ok(p) => match presets.iter_mut().find(|e| e.id == p.id) {
@@ -277,6 +320,9 @@ pub fn load() -> (Settings, Vec<String>) {
         Settings {
             presets,
             ffmpeg_path,
+            browser_path,
+            libreoffice_path,
+            pdf_engine,
         },
         warnings,
     )
@@ -292,6 +338,15 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 # Başka bir yerdeyse yolunu verin:
 # ffmpeg_path = "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe"
 
+# PDF: Office belgeleri (DOCX/XLSX/PPTX) için motor.
+#   auto        = LibreOffice kuruluysa onu, değilse yerleşik dönüştürücüyü kullan (varsayılan)
+#   builtin     = her zaman yerleşik dönüştürücü (hızlı, orta doğruluk)
+#   libreoffice = yalnızca LibreOffice
+# pdf_engine = "auto"
+# Edge/Chrome ve LibreOffice otomatik bulunur; gerekirse yollarını verin:
+# browser_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+# libreoffice_path = "C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+
 # Menüden gizlemek istediğiniz yerleşik preset'ler:
 # hide = ["bmp", "tiff", "ico"]
 
@@ -299,9 +354,9 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 # [[preset]]
 # id = "web-jpg"
 # label = "JPG (web, 1920px)"
-# kind = "image"            # image | ffmpeg
+# kind = "image"            # image | ffmpeg | pdf
 # output = "jpg"
-# input = ["image"]         # gruplar: image, audio, video, media; ya da tek tek uzantılar
+# input = ["image"]         # gruplar: image, audio, video, media, document; ya da tek tek uzantılar
 # suffix = "web"
 # quality = 80              # JPG kalitesi (1-100)
 # max_width = 1920          # oran korunur, asla büyütülmez

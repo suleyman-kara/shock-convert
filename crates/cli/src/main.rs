@@ -6,6 +6,7 @@ mod config;
 mod ffmpeg;
 mod log;
 mod menu;
+mod pdf;
 mod platform;
 mod plugins;
 mod presets;
@@ -174,8 +175,19 @@ fn run(id: &str, files: &[PathBuf]) -> i32 {
         platform::notify("Shock Convert", &format!("Bilinmeyen menü girdisi: {id}"));
         return 2;
     };
-    if matches!(entry.action, menu::Action::Ffmpeg(_)) {
-        // Ses/video uzun sürebilir; başladığını hemen göster.
+    let slow = match entry.action {
+        menu::Action::Ffmpeg(_) => true,
+        menu::Action::Pdf(_) => files.iter().any(|f| {
+            pdf::is_slow(
+                &f.extension()
+                    .map(|e| e.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+            )
+        }),
+        _ => false,
+    };
+    if slow {
+        // Ses/video ve belge→PDF uzun sürebilir; başladığını hemen göster.
         platform::notify(
             "Shock Convert",
             &format!("{} dosya → {} dönüştürülüyor…", files.len(), entry.label),

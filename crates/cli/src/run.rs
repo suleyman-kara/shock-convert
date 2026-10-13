@@ -54,7 +54,7 @@ pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
     let next = AtomicUsize::new(0);
     // ffmpeg kendi içinde çok çekirdek kullanır; üst üste fazla süreç başlatma.
     let cap = match entry.action {
-        Action::Ffmpeg(_) => 2,
+        Action::Ffmpeg(_) | Action::Pdf(_) => 2,
         _ => usize::MAX,
     };
     let workers = std::thread::available_parallelism()
@@ -99,6 +99,7 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
     let result = match &entry.action {
         Action::Image { format, options } => convert_image(file, *format, options),
         Action::Ffmpeg(job) => run_ffmpeg(file, job),
+        Action::Pdf(job) => crate::pdf::run(file, job),
         Action::Plugin(p) => run_plugin(p, file),
     };
     match result {

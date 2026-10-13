@@ -19,6 +19,7 @@ pub struct FfmpegJob {
 pub enum Action {
     Image { format: Format, options: Options },
     Ffmpeg(FfmpegJob),
+    Pdf(crate::pdf::PdfJob),
     Plugin(PluginEntry),
 }
 
@@ -39,7 +40,7 @@ impl Entry {
     }
 }
 
-fn preset_entry(p: &Preset, ffmpeg_path: &Option<PathBuf>) -> Option<Entry> {
+fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
     let own_exts: Vec<&str> = match Format::from_ext(&p.output) {
         Some(f) => f.input_exts().to_vec(),
         None => vec![p.output.as_str()],
@@ -70,8 +71,13 @@ fn preset_entry(p: &Preset, ffmpeg_path: &Option<PathBuf>) -> Option<Entry> {
                 },
             }
         }
+        Kind::Pdf => Action::Pdf(crate::pdf::PdfJob {
+            browser_path: s.browser_path.clone(),
+            libreoffice_path: s.libreoffice_path.clone(),
+            engine: s.pdf_engine,
+        }),
         Kind::Ffmpeg => Action::Ffmpeg(FfmpegJob {
-            ffmpeg_path: ffmpeg_path.clone(),
+            ffmpeg_path: s.ffmpeg_path.clone(),
             args: p.args.clone(),
             suffix: p.suffix.clone(),
             output_ext: p.output.clone(),
@@ -90,7 +96,7 @@ pub fn build(settings: &Settings, plugins: &[Plugin]) -> Vec<Entry> {
     let mut entries: Vec<Entry> = settings
         .presets
         .iter()
-        .filter_map(|p| preset_entry(p, &settings.ffmpeg_path))
+        .filter_map(|p| preset_entry(p, settings))
         .collect();
 
     for plugin in plugins {
@@ -118,7 +124,7 @@ mod tests {
     fn settings() -> Settings {
         Settings {
             presets: presets::defaults(),
-            ffmpeg_path: None,
+            ..Settings::default()
         }
     }
 
@@ -129,6 +135,27 @@ mod tests {
         assert!(!jpg.accepts("jpg") && !jpg.accepts("JPEG"));
         assert!(jpg.accepts("png") && jpg.accepts("TIF"));
         assert!(!jpg.accepts("mp4"));
+    }
+
+    #[test]
+    fn pdf_entry_covers_images_and_documents() {
+        let entries = build(&settings(), &[]);
+        let pdf = entries.iter().find(|e| e.id == "pdf").unwrap();
+        for ext in [
+            "png", "JPG", "docx", "xlsx", "pptx", "odt", "txt", "md", "html",
+        ] {
+            assert!(pdf.accepts(ext), "{ext}");
+        }
+        assert!(!pdf.accepts("pdf") && !pdf.accepts("mp4"));
+        assert!(matches!(pdf.action, Action::Pdf(_)));
+        // Belgelerde görüntü dönüştürme girdileri görünmez.
+        assert!(
+            !entries
+                .iter()
+                .find(|e| e.id == "jpg")
+                .unwrap()
+                .accepts("docx")
+        );
     }
 
     #[test]
