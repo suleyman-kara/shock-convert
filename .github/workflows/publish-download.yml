@@ -1,0 +1,88 @@
+# Kurulum dosyasını yönlendirmesiz bir adresten yayınlar (GitHub Pages, gh-pages dalı).
+#
+# Neden: GitHub release indirme bağlantıları 302 ile geçici bir depolama adresine yönlendirir.
+# Microsoft Store (EXE yolu) ise yönlendirme yapmayan, sürüme özel ve değişmeyen bir bağlantı ister:
+#   https://<sahip>.github.io/<repo>/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe
+#
+# Tetikleme: v* etiketiyle çalışan "build" iş akışı başarıyla bitince (release dosyaları yüklenmiş olur),
+# ya da elle (eski bir sürümü yayınlamak için) "Run workflow" ile etiket girilerek.
+# Bir sürümün dosyası bir kez yayınlandıktan sonra değiştirilmez (Store bağlantısı sabit kalmalı).
+#
+# Bir kerelik ayar: Settings → Pages → Source: "Deploy from a branch", Branch: gh-pages / (root).
+# Not: Pages'e özel alan adı bağlanırsa github.io adresleri yönlenir; Store'a o alan adındaki bağlantı verilmeli.
+
+name: publish-download
+
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Yayınlanacak sürüm etiketi (ör. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-download
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Etiketi doğrula
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Geçersiz sürüm etiketi: '$TAG' (beklenen: vX.Y.Z)"; exit 1
+          fi
+
+      - name: gh-pages dalını hazırla
+        run: |
+          git init -q site
+          cd site
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin gh-pages; then
+            git checkout -q -b gh-pages FETCH_HEAD
+          else
+            git checkout -q --orphan gh-pages
+          fi
+          touch .nojekyll
+
+      - name: Kurulum dosyasını indir
+        run: |
+          dest="site/download/${TAG}"
+          if compgen -G "${dest}/shock-convert-setup-*.exe" > /dev/null; then
+            echo "${TAG} zaten yayınlanmış; değiştirilmiyor."
+            exit 0
+          fi
+          mkdir -p "$dest"
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p 'shock-convert-setup-*.exe' -D "$dest"
+          (cd "$dest" && sha256sum shock-convert-setup-*.exe > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      - name: Yayınla
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok."
+          else
+            git commit -q -m "İndirme: ${TAG}"
+            git push -q origin gh-pages
+          fi
+          file=$(cd "download/${TAG}" && ls shock-convert-setup-*.exe)
+          echo "Store için paket bağlantısı:" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/download/${TAG}/${file}" >> "$GITHUB_STEP_SUMMARY"
