@@ -30,7 +30,7 @@ pub struct Options {
     pub max_size: Option<(u32, u32)>,
     /// Şeffaf alanın JPG'de oturtulacağı renk (RGB).
     pub background: [u8; 3],
-    /// Dosya adına eklenen ek (`foto-<ek>.<uzantı>`). Boşsa hedef formatın uzantısı kullanılır.
+    /// Dosya adına eklenen ek (`foto-<ek>.<uzantı>`). Boşsa ek yoktur: `foto.png` -> `foto.jpg`.
     pub suffix: Option<String>,
 }
 
@@ -61,8 +61,7 @@ pub fn convert_file_with(
     if let Some((mw, mh)) = opts.max_size {
         img = shrink_to_fit(img, mw, mh);
     }
-    let suffix = opts.suffix.as_deref().unwrap_or(target.ext());
-    let out = unique_output_path(input, suffix, target.ext())?;
+    let out = unique_output_path(input, opts.suffix.as_deref(), target.ext())?;
     match write(&img, &out, target, opts) {
         Ok(()) => Ok(out),
         Err(e) => {
@@ -184,7 +183,7 @@ mod tests {
             let out = convert_file(&input, target).unwrap();
             assert_eq!(
                 out.file_name().unwrap().to_string_lossy(),
-                format!("kare-{}.{}", target.ext(), target.ext())
+                format!("kare.{}", target.ext())
             );
             let back = image::open(&out).unwrap_or_else(|e| panic!("{target:?}: {e}"));
             assert!(back.width() > 0);

@@ -115,15 +115,15 @@ fn run_ffmpeg(file: &Path, job: &FfmpegJob) -> Result<PathBuf, String> {
     ffmpeg::run(
         job.ffmpeg_path.as_deref(),
         &job.args,
-        &job.suffix,
+        job.suffix.as_deref(),
         &job.output_ext,
         file,
     )
 }
 
 fn run_plugin(p: &PluginEntry, input: &Path) -> Result<PathBuf, String> {
-    let output =
-        unique_output_path(input, &p.output_suffix, &p.output_ext).map_err(|e| e.to_string())?;
+    let output = unique_output_path(input, Some(p.output_suffix.as_str()), &p.output_ext)
+        .map_err(|e| e.to_string())?;
     let args: Vec<String> = p
         .command
         .iter()

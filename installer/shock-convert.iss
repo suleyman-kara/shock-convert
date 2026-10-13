@@ -16,6 +16,7 @@ DefaultDirName={localappdata}\Programs\ShockConvert
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 UninstallDisplayIcon={app}\shock-convert.exe
+SetupIconFile=..\assets\icon.ico
 OutputDir=..\dist
 OutputBaseFilename=shock-convert-setup-{#AppVersion}
 Compression=lzma2

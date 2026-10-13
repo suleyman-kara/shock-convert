@@ -11,7 +11,7 @@ use crate::presets::{Kind, Preset, Settings};
 pub struct FfmpegJob {
     pub ffmpeg_path: Option<PathBuf>,
     pub args: Vec<String>,
-    pub suffix: String,
+    pub suffix: Option<String>,
     pub output_ext: String,
 }
 
@@ -73,7 +73,7 @@ fn preset_entry(p: &Preset, ffmpeg_path: &Option<PathBuf>) -> Option<Entry> {
         Kind::Ffmpeg => Action::Ffmpeg(FfmpegJob {
             ffmpeg_path: ffmpeg_path.clone(),
             args: p.args.clone(),
-            suffix: p.suffix.clone().unwrap_or_else(|| p.output.clone()),
+            suffix: p.suffix.clone(),
             output_ext: p.output.clone(),
         }),
     };

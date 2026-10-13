@@ -54,7 +54,7 @@ pub fn build_args(input: &Path, output: &Path, preset_args: &[String]) -> Vec<Os
 pub fn run(
     ffmpeg: Option<&Path>,
     preset_args: &[String],
-    suffix: &str,
+    suffix: Option<&str>,
     ext: &str,
     input: &Path,
 ) -> Result<PathBuf, String> {
