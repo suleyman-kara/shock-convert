@@ -2,6 +2,8 @@
 
 Windows'ta görüntü, ses, video ve belge dosyalarına **sağ tıklayıp** istediğiniz formata çeviren küçük ve hızlı bir araç.
 
+**Web sitesi ve indirme:** https://suleyman-kara.github.io/shock-convert/
+
 ```
 foto.png     ──sağ tık──▶  Shock Convert ▸ JPG  ──▶  foto.jpg     (aynı klasörde)
 rapor.docx   ──sağ tık──▶  Shock Convert ▸ PDF  ──▶  rapor.pdf
@@ -141,6 +143,7 @@ cargo check --workspace --target x86_64-pc-windows-gnu  # Windows kodunu Linux't
 crates/core      görüntü dönüştürme ve görüntü→PDF yazıcı (format, seçenekler, çıktı adlandırma)
 crates/cli       shock-convert.exe: komutlar, preset'ler, ffmpeg, menü modeli, eklentiler, kayıt defteri, bildirim
 crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, tarayıcı ve LibreOffice çalıştırıcıları
+site             tanıtım sitesi (React + Vite; bkz. docs/SITE.md)
 assets           geçici uygulama ikonu (make_icon.py ile üretilir; icon.ico exe'ye gömülür)
 installer        Inno Setup betiği
 ```

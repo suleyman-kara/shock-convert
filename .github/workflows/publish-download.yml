@@ -26,8 +26,9 @@ on:
 permissions:
   contents: write
 
+# site iş akışıyla aynı dala (gh-pages) yazdığı için aynı kuyrukta sırayla çalışır.
 concurrency:
-  group: publish-download
+  group: gh-pages
   cancel-in-progress: false
 
 jobs:
@@ -76,6 +77,12 @@ jobs:
           cd site
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Sitenin indirme düğmesi için en yüksek yayınlanmış sürüm (eski bir sürüm sonradan
+          # yayınlansa bile latest.json en yenisini gösterir).
+          latest=$(find download -mindepth 1 -maxdepth 1 -type d -name 'v*' -printf '%f\n' | sed 's/^v//' | sort -V | tail -1)
+          setup=$(cd "download/v${latest}" && ls shock-convert-setup-*.exe)
+          sha=$(cut -d' ' -f1 "download/v${latest}/SHA256SUMS.txt")
+          printf '{"version":"%s","setup":"%s","sha256":"%s"}\n' "$latest" "$setup" "$sha" > download/latest.json
           git add -A
           if git diff --cached --quiet; then
             echo "Değişiklik yok."
