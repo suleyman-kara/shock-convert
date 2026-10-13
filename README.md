@@ -150,6 +150,9 @@ ve `Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert`. `unregist
 
 Windows'ta elle doğrulama listesi: [docs/WINDOWS-TEST.md](docs/WINDOWS-TEST.md).
 
-## Lisans
+## Lisans ve kod imzalama
 
-[LICENSE](LICENSE) dosyasına bakın.
+[LICENSE](LICENSE) dosyasına bakın (Apache-2.0).
+
+Kod imzalama politikası: [CODE_SIGNING.md](CODE_SIGNING.md) · Code signing policy: [CODE_SIGNING.md](CODE_SIGNING.md).
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/) (başvuru aşamasında).
