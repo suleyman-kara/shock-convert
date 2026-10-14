@@ -131,6 +131,7 @@ dönüştürmeyi ve çoklu seçim benzetimini dener, raporu panoya kopyalar.
 | Ses/video | ffmpeg ile; en fazla 2 dosya paralel (ffmpeg zaten çok çekirdek kullanır). Başlarken "dönüştürülüyor…" bildirimi çıkar. İlerleme çubuğu yok |
 | Hız | Görüntülerde kazanç süreç içi dönüştürme ve hızlı başlangıçtan gelir. Ses/video süresini ffmpeg belirler, bu araç onu hızlandırmaz |
 | Bozuk dosya | Hata bildirimi gösterilir, yarım çıktı bırakılmaz |
+| Yarım dosya | Çıktı önce geçici adla (`foto.part.jpg`) yazılır, bitince `foto.jpg` olur. Bilgisayar kapansa ya da işlem zorla sonlandırılsa bile asıl adda yarım/boş dosya kalmaz; geride kalan `.part` dosyası silinebilir (bir saat sonra ad yeniden kullanılır) |
 
 ## Eklentiler (upscale vb. için)
 
@@ -149,7 +150,7 @@ output_ext = "png"
 command = ["python", "{plugin_dir}/upscale.py", "{input}", "{output}"]
 ```
 
-`{input}`, `{output}` ve `{plugin_dir}` yer tutucuları doldurulur. Komut herhangi bir program olabilir
+`{input}`, `{output}` ve `{plugin_dir}` yer tutucuları doldurulur. `{output}` geçici bir addır (`foto.part.png`); eklenti başarıyla bitince asıl ada taşınır. Komut herhangi bir program olabilir
 (Python betiği, `.exe`, vb.); sıfır dışı çıkış kodu hata sayılır ve son stderr satırı bildirimde gösterilir.
 Eklenti kaldırılırken klasörü silip `register` çalıştırmak yeterlidir. Örnek: [`examples/plugins/grayscale`](examples/plugins/grayscale).
 

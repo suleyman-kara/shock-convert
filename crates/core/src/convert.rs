@@ -14,7 +14,7 @@ use image::{
 };
 
 use crate::format::Format;
-use crate::output::unique_output_path;
+use crate::output::reserve_output;
 
 pub const DEFAULT_JPEG_QUALITY: u8 = 90;
 const ICO_SIZES: [u32; 6] = [16, 32, 48, 64, 128, 256];
@@ -67,14 +67,9 @@ pub fn convert_file_with(
     if let Some((mw, mh)) = opts.max_size {
         img = shrink_to_fit(img, mw, mh);
     }
-    let out = unique_output_path(input, opts.suffix.as_deref(), target.ext())?;
-    match write(&img, &out, target, opts, &meta) {
-        Ok(()) => Ok(out),
-        Err(e) => {
-            let _ = std::fs::remove_file(&out);
-            Err(e)
-        }
-    }
+    let out = reserve_output(input, opts.suffix.as_deref(), target.ext())?;
+    write(&img, out.path(), target, opts, &meta)?;
+    Ok(out.commit()?)
 }
 
 /// Bellekteki bir görüntüyü `out` yoluna `target` formatında yazar (ör. PDF sayfası çizimi).

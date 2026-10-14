@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use shock_convert_core::unique_output_path;
+use shock_convert_core::reserve_output;
 
 const INSTALL_HINT: &str = "ffmpeg bulunamadı. Kurmak için: winget install Gyan.FFmpeg (sonra Shock Convert'i tekrar deneyin) \
      ya da presets.toml içinde `ffmpeg_path` verin.";
@@ -59,10 +59,11 @@ pub fn run(
     input: &Path,
 ) -> Result<PathBuf, String> {
     let ffmpeg = locate(ffmpeg).ok_or(INSTALL_HINT)?;
-    let output = unique_output_path(input, suffix, ext).map_err(|e| e.to_string())?;
+    let reserved = reserve_output(input, suffix, ext).map_err(|e| e.to_string())?;
+    let output = reserved.path();
 
     let mut cmd = Command::new(&ffmpeg);
-    cmd.args(build_args(input, &output, preset_args))
+    cmd.args(build_args(input, output, preset_args))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -75,14 +76,13 @@ pub fn run(
         .output()
         .map_err(|e| format!("ffmpeg başlatılamadı: {e}"))?;
 
-    let empty = std::fs::metadata(&output).map_or(true, |m| m.len() == 0);
+    let empty = std::fs::metadata(output).map_or(true, |m| m.len() == 0);
     if !out.status.success() || empty {
-        let _ = std::fs::remove_file(&output);
         let stderr = String::from_utf8_lossy(&out.stderr);
         let msg = stderr.trim().lines().last().unwrap_or("bilinmeyen hata");
         return Err(format!("ffmpeg hata verdi: {msg}"));
     }
-    Ok(output)
+    reserved.commit().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

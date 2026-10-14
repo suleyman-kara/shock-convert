@@ -9,7 +9,7 @@ use flate2::write::ZlibEncoder;
 use image::{ColorType, ImageDecoder, ImageFormat, ImageReader};
 
 use crate::convert::{ConvertError, flatten_on, load};
-use crate::output::unique_output_path;
+use crate::output::write_output;
 
 /// 96 dpi'lık piksel -> PDF noktası (1/72 inç).
 const PX_TO_PT: f64 = 0.75;
@@ -20,14 +20,7 @@ const MAX_PAGE_PT: f64 = 14_400.0;
 /// Hata olursa yarım çıktı silinir.
 pub fn image_to_pdf(input: &Path) -> Result<PathBuf, ConvertError> {
     let bytes = image_to_pdf_bytes(input)?;
-    let out = unique_output_path(input, None, "pdf")?;
-    match std::fs::write(&out, bytes) {
-        Ok(()) => Ok(out),
-        Err(e) => {
-            let _ = std::fs::remove_file(&out);
-            Err(e.into())
-        }
-    }
+    Ok(write_output(input, None, "pdf", &bytes)?)
 }
 
 /// Görüntüyü tek sayfalık PDF baytlarına çevirir (dosyaya yazmadan; ör. PDF birleştirme için).

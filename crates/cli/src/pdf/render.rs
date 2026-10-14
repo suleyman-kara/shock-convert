@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use pdfium_render::prelude::*;
-use shock_convert_core::{Format, Options, save_image, unique_output_path};
+use shock_convert_core::{Format, Options, reserve_output, save_image, write_output};
 
 const HINT: &str =
     "PDFium kitaplığı (pdfium.dll) bulunamadı; Shock Convert'i yeniden kurmak sorunu çözer";
@@ -100,17 +100,18 @@ pub fn to_images(
             .map_err(|e| format!("{}. sayfa çizilemedi: {e}", i + 1))?;
         // Sayfa beyaz zemine çizildi; saydamlık kanalı yalnızca dosyayı büyütür.
         let img = shock_convert_core::image::DynamicImage::ImageRgb8(img.to_rgb8());
-        let out = if count == 1 {
-            unique_output_path(file, None, target.ext())
+        let reserved = if count == 1 {
+            reserve_output(file, None, target.ext())
         } else {
-            unique_output_path(
+            reserve_output(
                 file,
                 Some(&format!("{suffix}-{:0width$}", i + 1)),
                 target.ext(),
             )
         }
         .map_err(|e| e.to_string())?;
-        save_image(&img, &out, target, opts).map_err(|e| e.to_string())?;
+        save_image(&img, reserved.path(), target, opts).map_err(|e| e.to_string())?;
+        let out = reserved.commit().map_err(|e| e.to_string())?;
         let _ = shock_convert_core::copy_file_times(file, &out);
         first.get_or_insert(out);
     }
@@ -145,11 +146,7 @@ pub fn to_text(file: &Path) -> Result<PathBuf, String> {
         );
     }
     text.push_str("\r\n");
-    let out = unique_output_path(file, None, "txt").map_err(|e| e.to_string())?;
-    std::fs::write(&out, text).map_err(|e| {
-        let _ = std::fs::remove_file(&out);
-        e.to_string()
-    })?;
+    let out = write_output(file, None, "txt", text.as_bytes()).map_err(|e| e.to_string())?;
     let _ = shock_convert_core::copy_file_times(file, &out);
     Ok(out)
 }

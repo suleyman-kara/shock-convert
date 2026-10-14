@@ -27,7 +27,7 @@ mod xml;
 
 use std::path::{Path, PathBuf};
 
-use shock_convert_core::{Format, image_to_pdf, unique_output_path};
+use shock_convert_core::{Format, image_to_pdf, reserve_output};
 
 use self::process::TempDir;
 
@@ -125,19 +125,18 @@ pub fn run(file: &Path, job: &PdfJob) -> Result<PathBuf, String> {
     }
 }
 
-/// Çıktı adını rezerve eder (`ad.pdf`, doluysa `ad (1).pdf`), `produce` içine yazdırır; hata olursa siler.
+/// Çıktı adını rezerve eder (`ad.pdf`, doluysa `ad (1).pdf`), `produce`'a geçici dosyaya
+/// yazdırır ve başarılıysa asıl ada taşır; hata olursa geçici dosya silinir.
 fn finalize(
     input: &Path,
     produce: impl FnOnce(&Path) -> Result<(), String>,
 ) -> Result<PathBuf, String> {
-    let out = unique_output_path(input, None, "pdf").map_err(|e| e.to_string())?;
-    match produce(&out) {
-        Ok(()) if std::fs::metadata(&out).is_ok_and(|m| m.len() > 0) => Ok(out),
-        other => {
-            let _ = std::fs::remove_file(&out);
-            Err(other.err().unwrap_or_else(|| "boş PDF üretildi".into()))
-        }
+    let out = reserve_output(input, None, "pdf").map_err(|e| e.to_string())?;
+    produce(out.path())?;
+    if !std::fs::metadata(out.path()).is_ok_and(|m| m.len() > 0) {
+        return Err("boş PDF üretildi".into());
     }
+    out.commit().map_err(|e| e.to_string())
 }
 
 fn browser_for(job: &PdfJob) -> Result<PathBuf, String> {

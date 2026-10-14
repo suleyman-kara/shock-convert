@@ -12,7 +12,7 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 use lopdf::{Dictionary, Document, Object, ObjectId};
-use shock_convert_core::{Format, image_to_pdf_bytes, unique_output_path};
+use shock_convert_core::{Format, image_to_pdf_bytes, write_output};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tool {
@@ -242,12 +242,7 @@ fn write_reserved(
     suffix: &str,
     bytes: Result<Vec<u8>, String>,
 ) -> Result<PathBuf, String> {
-    let bytes = bytes?;
-    let out = unique_output_path(input, Some(suffix), "pdf").map_err(err)?;
-    std::fs::write(&out, bytes).map_err(|e| {
-        let _ = std::fs::remove_file(&out);
-        e.to_string()
-    })?;
+    let out = write_output(input, Some(suffix), "pdf", &bytes?).map_err(err)?;
     // Çıktı, kaynağın tarihini taşır (Gezgin'de tarihe göre sıralama bozulmasın).
     let _ = shock_convert_core::copy_file_times(input, &out);
     Ok(out)
