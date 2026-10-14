@@ -9,13 +9,13 @@
 //!
 //! Office belgelerinde bir motor başarısız olursa (ör. Office etkinleştirilmemiş) sıradakine geçilir.
 
-mod browser;
+pub(crate) mod browser;
 mod docx;
 #[cfg(test)]
 mod fixtures;
 mod html;
-mod libreoffice;
-mod msoffice;
+pub(crate) mod libreoffice;
+pub(crate) mod msoffice;
 mod ooxml;
 mod pptx;
 mod process;

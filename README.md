@@ -70,6 +70,21 @@ Görüntüye ve metne çevirme, Chromium'un PDF motoru **PDFium** ile yapılır 
 
 Şifreli ve parola korumalı PDF'ler desteklenmez. Birleştirmede yer imleri ve form alanları korunmaz. Ayrıntılar: [docs/PDF-ARACLARI-ANALIZ.md](docs/PDF-ARACLARI-ANALIZ.md).
 
+## Ayarlar
+
+Sağ tık menüsünün en altındaki **Ayarlar…** ya da Başlat menüsündeki **Shock Convert Ayarları**
+(komut satırında `shock-convert settings`) ayarlar penceresini açar:
+
+- **Genel:** çıktının kaynak tarihini taşıması; fotoğraf bilgileri (EXIF): koru / konumu sil / hepsini sil
+- **PDF:** Office belgeleri için motor (otomatik, Microsoft Office, LibreOffice, yerleşik)
+- **Araçlar:** ffmpeg, Edge/Chrome, LibreOffice ve Office'in bulunup bulunmadığı; gerekirse yol
+- **Menü:** hangi yerleşik girdilerin görüneceği
+- **Preset'lerim:** kendi preset'lerinizi ekleme, düzenleme, silme
+
+Kaydedince `presets.toml` güncellenir (dosyadaki yorumlarınız korunur) ve menü yeniden kaydedilir.
+Pencere, Windows'ta zaten bulunan Edge'in uygulama penceresidir; sayfayı Shock Convert yalnızca
+bu bilgisayardan erişilebilen (`127.0.0.1`), rastgele anahtarlı bir adresten sunar ve pencere kapanınca durur.
+
 ## Preset'ler
 
 `shock-convert presets` dosya yolunu yazar ve yoksa açıklamalı bir örnek oluşturur (`%APPDATA%\ShockConvert\presets.toml`).

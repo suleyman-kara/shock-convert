@@ -101,6 +101,18 @@ pub fn register(exe: &Path, entries: &[Entry]) -> Result<(), String> {
             cmd.set_value("", &format!("\"{exe}\" shell-run \"{}\" \"%1\"", entry.id))
                 .map_err(|e| e.to_string())?;
         }
+
+        // Alt menünün en sonunda, ayırıcıyla: ayarlar penceresi. "zz" anahtarı sıralamada sona düşer.
+        let (item, _) = hkcu()
+            .create_subkey(format!(r"{base}\shell\zz-settings"))
+            .map_err(|e| e.to_string())?;
+        item.set_value("MUIVerb", &"Ayarlar…")
+            .map_err(|e| e.to_string())?;
+        item.set_value("CommandFlags", &0x20u32) // ECF_SEPARATORBEFORE
+            .map_err(|e| e.to_string())?;
+        let (cmd, _) = item.create_subkey("command").map_err(|e| e.to_string())?;
+        cmd.set_value("", &format!("\"{exe}\" settings"))
+            .map_err(|e| e.to_string())?;
     }
     refresh_shell();
     Ok(())

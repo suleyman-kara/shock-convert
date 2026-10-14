@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shock Convert</title>
+<style>
+:root {
+  --bg: #f5f6f8; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
+  --accent: #e8590c; --accent-text: #ffffff; --accent-soft: #fff1e8; --ok: #2b8a3e; --warn: #b35c00;
+  --bad: #c92a2a; --field: #ffffff; --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a; --panel: #1e2125; --text: #e7e9ec; --muted: #9aa3ae; --line: #33383f;
+    --accent: #ff7a33; --accent-text: #15171a; --accent-soft: #3a2518; --ok: #69db7c; --warn: #ffb35c;
+    --bad: #ff8787; --field: #16181b; --shadow: none; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto 1fr auto; height: 100vh; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+header .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; color: var(--accent-text); font-weight: 700; }
+header .spacer { flex: 1; }
+header .ver { color: var(--muted); font-size: 12px; }
+nav { border-right: 1px solid var(--line); padding: 12px 8px; background: var(--panel); overflow: auto; }
+nav button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+nav button[aria-selected="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+nav button:hover { color: var(--text); }
+main { overflow: auto; padding: 24px 28px 40px; }
+section { max-width: 760px; }
+section[hidden] { display: none; }
+h2 { font-size: 20px; margin: 0 0 4px; }
+.lead { color: var(--muted); margin: 0 0 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card h3 { margin: 0 0 4px; font-size: 15px; }
+.hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+.row { display: flex; align-items: center; gap: 12px; }
+.row > .grow { flex: 1; min-width: 0; }
+label.choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; cursor: pointer; }
+label.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+label.choice input { margin-top: 3px; accent-color: var(--accent); }
+.switch { position: relative; width: 42px; height: 24px; flex: none; }
+.switch input { appearance: none; width: 42px; height: 24px; margin: 0; border-radius: 12px; background: var(--line); cursor: pointer; transition: background .15s; }
+.switch input:checked { background: var(--accent); }
+.switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.switch input:checked::after { transform: translateX(18px); }
+input[type=text], input[type=number], select, textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
+textarea { min-height: 70px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.status { font-size: 13px; margin: 6px 0 8px; }
+.status.ok { color: var(--ok); }
+.status.warn { color: var(--warn); }
+code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; word-break: break-all; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.badge { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+.badge.ok { color: var(--ok); border-color: currentColor; }
+.list .item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.list .item:first-child { border-top: 0; }
+.list .item .meta { color: var(--muted); font-size: 12.5px; }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 16px; }
+.checks label { display: flex; gap: 8px; align-items: center; padding: 3px 0; cursor: pointer; }
+.checks input { accent-color: var(--accent); }
+footer { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--panel); }
+footer .msg { flex: 1; font-size: 13px; color: var(--muted); }
+footer .msg.bad { color: var(--bad); }
+footer .msg.ok { color: var(--ok); }
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(640px, 94vw); background: var(--panel); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog form { padding: 20px 22px; }
+dialog h3 { margin: 0 0 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { margin-bottom: 12px; }
+.field > span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.field .hint { font-weight: normal; }
+.errors { color: var(--bad); font-size: 13px; margin: 0 0 10px; padding-left: 18px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.empty { color: var(--muted); padding: 6px 0; }
+@media (max-width: 720px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
+  nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px; }
+  nav button { white-space: nowrap; width: auto; }
+  main { padding: 18px 16px 32px; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo" aria-hidden="true">S</div>
+    <h1 data-t="title"></h1>
+    <span class="spacer"></span>
+    <span class="ver" id="ver"></span>
+    <select id="lang" aria-label="Dil / Language" style="width:auto">
+      <option value="tr">Türkçe</option>
+      <option value="en">English</option>
+    </select>
+  </header>
+  <nav role="tablist" id="tabs"></nav>
+  <main id="main">
+    <section id="general" role="tabpanel">
+      <h2 data-t="general"></h2>
+      <p class="lead" data-t="general_lead"></p>
+      <div class="card">
+        <div class="row">
+          <div class="grow">
+            <h3 data-t="keep_dates"></h3>
+            <p class="hint" data-t="keep_dates_hint"></p>
+          </div>
+          <span class="switch"><input type="checkbox" id="keep_dates" role="switch" aria-labelledby="keep_dates_label"></span>
+        </div>
+        <span id="keep_dates_label" hidden data-t="keep_dates"></span>
+      </div>
+      <div class="card">
+        <h3 data-t="metadata"></h3>
+        <p class="hint" data-t="metadata_hint"></p>
+        <div id="metadata"></div>
+      </div>
+      <div class="card">
+        <h3 data-t="file"></h3>
+        <p class="hint" data-t="file_hint"></p>
+        <p class="mono" id="config_path"></p>
+        <button class="btn small" id="open_file" type="button" data-t="open_file"></button>
+      </div>
+    </section>
+
+    <section id="pdf" role="tabpanel" hidden>
+      <h2>PDF</h2>
+      <p class="lead" data-t="pdf_lead"></p>
+      <div class="card"><div id="engine"></div></div>
+    </section>
+
+    <section id="tools" role="tabpanel" hidden>
+      <h2 data-t="tools"></h2>
+      <p class="lead" data-t="tools_lead"></p>
+      <div id="tool_cards"></div>
+    </section>
+
+    <section id="menu" role="tabpanel" hidden>
+      <h2 data-t="menu"></h2>
+      <p class="lead" data-t="menu_lead"></p>
+      <div id="menu_groups"></div>
+    </section>
+
+    <section id="presets" role="tabpanel" hidden>
+      <h2 data-t="presets"></h2>
+      <p class="lead" data-t="presets_lead"></p>
+      <div class="card">
+        <div class="list" id="preset_list"></div>
+        <button class="btn" id="add_preset" type="button" style="margin-top:10px" data-t="add_preset"></button>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <span class="msg" id="msg" role="status" aria-live="polite"></span>
+    <button class="btn" id="reset" type="button" data-t="undo"></button>
+    <button class="btn primary" id="save" type="button" data-t="save"></button>
+  </footer>
+</div>
+
+<dialog id="editor" aria-labelledby="editor_title">
+  <form method="dialog" id="editor_form" novalidate>
+    <h3 id="editor_title"></h3>
+    <ul class="errors" id="editor_errors" hidden></ul>
+    <div class="grid2">
+      <label class="field"><span data-t="f_label"></span><input type="text" id="f_label" required></label>
+      <label class="field"><span data-t="f_id"></span><input type="text" id="f_id" required pattern="[A-Za-z0-9_.-]+"></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span data-t="f_kind"></span>
+        <select id="f_kind">
+          <option value="image" data-t="k_image"></option>
+          <option value="ffmpeg" data-t="k_ffmpeg"></option>
+          <option value="pdf-tool" data-t="k_pdf_tool"></option>
+        </select>
+      </label>
+      <label class="field" id="w_tool"><span data-t="f_tool"></span><select id="f_tool"></select></label>
+    </div>
+    <div class="grid2">
+      <label class="field" id="w_output"><span data-t="f_output"></span>
+        <select id="f_output_sel"></select>
+        <input type="text" id="f_output_txt" list="media_exts" hidden>
+        <datalist id="media_exts"><option value="mp3"><option value="m4a"><option value="ogg"><option value="opus"><option value="flac"><option value="wav"><option value="mp4"><option value="webm"><option value="mkv"><option value="gif"></datalist>
+      </label>
+      <label class="field"><span><span data-t="f_suffix"></span> <span class="hint" data-t="f_suffix_hint"></span></span><input type="text" id="f_suffix"></label>
+    </div>
+    <div class="field">
+      <span data-t="f_input"></span>
+      <div class="checks" id="f_groups"></div>
+      <input type="text" id="f_exts" style="margin-top:6px" aria-describedby="f_exts_hint">
+      <p class="hint" id="f_exts_hint" data-t="f_exts_hint"></p>
+    </div>
+    <div class="grid2" id="w_image">
+      <label class="field" id="w_quality"><span data-t="f_quality"></span><input type="number" id="f_quality" min="1" max="100"></label>
+      <label class="field" id="w_dpi"><span>DPI</span><input type="number" id="f_dpi" min="36" max="600"></label>
+      <label class="field" id="w_maxw"><span data-t="f_max_w"></span><input type="number" id="f_max_w" min="1"></label>
+      <label class="field" id="w_maxh"><span data-t="f_max_h"></span><input type="number" id="f_max_h" min="1"></label>
+      <label class="field" id="w_bg"><span data-t="f_bg"></span><input type="color" id="f_bg" value="#ffffff"></label>
+    </div>
+    <label class="field" id="w_args"><span data-t="f_args"></span><textarea id="f_args" spellcheck="false"></textarea><span class="hint" data-t="f_args_hint"></span></label>
+    <div class="actions">
+      <button class="btn" value="cancel" type="button" id="editor_cancel" data-t="cancel"></button>
+      <button class="btn primary" type="submit" id="editor_ok" data-t="ok"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const I18N = {
+  tr: {
+    title: "Shock Convert — Ayarlar", general: "Genel", pdf_tab: "PDF", tools: "Araçlar", menu: "Menü", presets: "Preset'lerim",
+    general_lead: "Dönüştürülen dosyaların nasıl yazılacağı.",
+    keep_dates: "Çıktı, kaynak dosyanın tarihini taşısın",
+    keep_dates_hint: "foto.jpg, foto.png ile aynı oluşturma ve değiştirme tarihini alır. Fotoğraf arşivlerinde ve tarihe göre sıralamada sıra bozulmaz.",
+    metadata: "Fotoğraf bilgileri (EXIF)",
+    metadata_hint: "Kamera modeli, çekim tarihi ve konum gibi bilgiler. Renk profili her durumda korunur.",
+    m_keep: "Koru", m_keep_hint: "Tüm bilgiler çıktıya aktarılır.",
+    m_strip_location: "Konumu sil", m_strip_location_hint: "GPS konumu silinir; kamera ve tarih bilgisi kalır. Paylaşacağınız fotoğraflar için.",
+    m_strip: "Hepsini sil", m_strip_hint: "EXIF tamamen atılır.",
+    file: "Ayar dosyası", file_hint: "Bu sayfa presets.toml dosyasını düzenler; dosyadaki yorumlarınız korunur.", open_file: "Dosyayı düzenleyicide aç",
+    pdf_lead: "Word, Excel ve PowerPoint belgelerini PDF'e çevirirken kullanılacak yöntem.",
+    e_auto: "Otomatik (önerilen)", e_auto_hint: "Sırayla Microsoft Office, LibreOffice ve yerleşik dönüştürücü denenir; olmayan ya da başarısız olan atlanır.",
+    e_office: "Yalnızca Microsoft Office", e_office_hint: "Word, Excel ve PowerPoint'in kendi PDF çıktısı. En yüksek doğruluk.",
+    e_libreoffice: "Yalnızca LibreOffice", e_libreoffice_hint: "Ücretsiz ve açık kaynak. DOC, ODT gibi eski biçimleri de açar.",
+    e_builtin: "Yalnızca yerleşik dönüştürücü", e_builtin_hint: "Hiçbir şey gerektirmez ve hızlıdır; düzen birebir olmayabilir.",
+    found: "Bulundu", not_found: "Bulunamadı", installed: "Kurulu", not_installed: "Kurulu değil",
+    tools_lead: "Shock Convert bu programları kendiliğinden bulur. Başka bir yerdeyse yolunu yazın.",
+    t_ffmpeg: "ffmpeg (ses ve video)", t_browser: "Edge / Chrome (metin ve belgeden PDF)", t_libreoffice: "LibreOffice (isteğe bağlı)", t_office: "Microsoft Office",
+    path_auto: "Otomatik", install_with: "Kurmak için:", copy: "Kopyala", copied: "Kopyalandı",
+    menu_lead: "Sağ tık menüsünde hangi yerleşik girdilerin görüneceği. Kaydedince menü güncellenir.",
+    g_image: "Görüntü", g_pdf: "PDF", g_media: "Ses ve video", overridden: "sizin sürümünüz",
+    presets_lead: "Kendi dönüştürme seçenekleriniz, ör. \"Web için 1920 px JPG\" ya da \"720p MP4\". Yerleşik bir girdiyle aynı kimliği verirseniz onun yerine geçer.",
+    add_preset: "+ Yeni preset", no_presets: "Henüz kendi preset'iniz yok.", edit: "Düzenle", del: "Sil",
+    new_preset: "Yeni preset", edit_preset: "Preset'i düzenle",
+    f_label: "Menüde görünen ad", f_id: "Kimlik", f_kind: "Tür", k_image: "Görüntü", k_ffmpeg: "Ses / video (ffmpeg)", k_pdf_tool: "PDF işlemi",
+    f_tool: "İşlem", f_output: "Çıktı biçimi", f_suffix: "Dosya adı eki", f_suffix_hint: "(isteğe bağlı: foto-web.jpg)",
+    f_input: "Hangi dosyalarda görünsün", f_exts_hint: "Ek uzantılar, virgülle: heic, raw",
+    f_quality: "Kalite (1–100)", f_max_w: "En fazla genişlik (px)", f_max_h: "En fazla yükseklik (px)", f_bg: "Saydam alan rengi (JPG)",
+    f_max_side: "Resimlerin en uzun kenarı (px)",
+    f_args: "ffmpeg seçenekleri", f_args_hint: "Girdi ile çıktı arasına eklenir, ör. -c:v libx264 -crf 23",
+    tool_merge: "Birleştir", tool_split: "Sayfalara böl", "tool_rotate-right": "90° sağa döndür", "tool_rotate-left": "90° sola döndür",
+    "tool_rotate-180": "180° döndür", tool_compress: "Küçült", "tool_to-images": "Görüntülere çevir", "tool_to-text": "Metne çevir",
+    grp_image: "Görüntüler", grp_audio: "Ses", grp_video: "Video", grp_document: "Belgeler", grp_pdf: "PDF",
+    cancel: "Vazgeç", ok: "Tamam", save: "Kaydet", undo: "Değişiklikleri geri al",
+    saving: "Kaydediliyor…", saved: "Kaydedildi. Menü güncellendi.", saved_no_menu: "Kaydedildi.", unsaved: "Kaydedilmemiş değişiklikler var.",
+    save_failed: "Kaydedilemedi:", load_failed: "Ayarlar okunamadı:", menu_failed: "Kaydedildi ama menü güncellenemedi:",
+    confirm_delete: "Bu preset silinsin mi?", need_label: "Ad gerekli.", need_id: "Kimlik yalnızca harf, rakam, - _ . içerebilir.",
+    need_input: "En az bir dosya türü seçin.", need_output: "Çıktı biçimi gerekli.", dup_id: "Bu kimlik başka bir preset'te kullanılıyor.",
+    lost: "Bağlantı kesildi. Pencereyi kapatıp ayarları yeniden açın.",
+  },
+  en: {
+    title: "Shock Convert — Settings", general: "General", pdf_tab: "PDF", tools: "Tools", menu: "Menu", presets: "My presets",
+    general_lead: "How converted files are written.",
+    keep_dates: "Output keeps the source file's dates",
+    keep_dates_hint: "photo.jpg gets the same created and modified dates as photo.png, so photo archives and date sorting stay in order.",
+    metadata: "Photo information (EXIF)",
+    metadata_hint: "Camera model, capture date, location and similar. The colour profile is always kept.",
+    m_keep: "Keep", m_keep_hint: "Everything is copied to the output.",
+    m_strip_location: "Remove location", m_strip_location_hint: "GPS location is removed; camera and date stay. For photos you share.",
+    m_strip: "Remove all", m_strip_hint: "EXIF is dropped entirely.",
+    file: "Settings file", file_hint: "This page edits presets.toml; your comments in the file are kept.", open_file: "Open file in editor",
+    pdf_lead: "How Word, Excel and PowerPoint documents are converted to PDF.",
+    e_auto: "Automatic (recommended)", e_auto_hint: "Tries Microsoft Office, LibreOffice and the built-in converter in turn; missing or failing ones are skipped.",
+    e_office: "Microsoft Office only", e_office_hint: "Word, Excel and PowerPoint's own PDF export. Highest fidelity.",
+    e_libreoffice: "LibreOffice only", e_libreoffice_hint: "Free and open source. Also opens older formats like DOC and ODT.",
+    e_builtin: "Built-in converter only", e_builtin_hint: "Needs nothing and is fast; layout may not match exactly.",
+    found: "Found", not_found: "Not found", installed: "Installed", not_installed: "Not installed",
+    tools_lead: "Shock Convert finds these programs on its own. If one lives elsewhere, enter its path.",
+    t_ffmpeg: "ffmpeg (audio and video)", t_browser: "Edge / Chrome (PDF from text and documents)", t_libreoffice: "LibreOffice (optional)", t_office: "Microsoft Office",
+    path_auto: "Automatic", install_with: "To install:", copy: "Copy", copied: "Copied",
+    menu_lead: "Which built-in entries appear in the right-click menu. The menu is updated when you save.",
+    g_image: "Images", g_pdf: "PDF", g_media: "Audio and video", overridden: "your version",
+    presets_lead: "Your own conversion options, e.g. \"1920 px JPG for web\" or \"720p MP4\". Using a built-in entry's ID replaces it.",
+    add_preset: "+ New preset", no_presets: "You have no presets yet.", edit: "Edit", del: "Delete",
+    new_preset: "New preset", edit_preset: "Edit preset",
+    f_label: "Name in menu", f_id: "ID", f_kind: "Type", k_image: "Image", k_ffmpeg: "Audio / video (ffmpeg)", k_pdf_tool: "PDF operation",
+    f_tool: "Operation", f_output: "Output format", f_suffix: "File name suffix", f_suffix_hint: "(optional: photo-web.jpg)",
+    f_input: "Show for these files", f_exts_hint: "Extra extensions, comma separated: heic, raw",
+    f_quality: "Quality (1–100)", f_max_w: "Max width (px)", f_max_h: "Max height (px)", f_bg: "Transparent area colour (JPG)",
+    f_max_side: "Longest image side (px)",
+    f_args: "ffmpeg options", f_args_hint: "Inserted between input and output, e.g. -c:v libx264 -crf 23",
+    tool_merge: "Merge", tool_split: "Split into pages", "tool_rotate-right": "Rotate 90° right", "tool_rotate-left": "Rotate 90° left",
+    "tool_rotate-180": "Rotate 180°", tool_compress: "Compress", "tool_to-images": "Convert to images", "tool_to-text": "Convert to text",
+    grp_image: "Images", grp_audio: "Audio", grp_video: "Video", grp_document: "Documents", grp_pdf: "PDF",
+    cancel: "Cancel", ok: "OK", save: "Save", undo: "Discard changes",
+    saving: "Saving…", saved: "Saved. Menu updated.", saved_no_menu: "Saved.", unsaved: "You have unsaved changes.",
+    save_failed: "Could not save:", load_failed: "Could not read settings:", menu_failed: "Saved, but the menu could not be updated:",
+    confirm_delete: "Delete this preset?", need_label: "Name is required.", need_id: "ID may only contain letters, digits, - _ .",
+    need_input: "Pick at least one file type.", need_output: "Output format is required.", dup_id: "Another preset uses this ID.",
+    lost: "Connection lost. Close the window and open settings again.",
+  },
+};
+const TABS = [["general", "general"], ["pdf", "pdf_tab"], ["tools", "tools"], ["menu", "menu"], ["presets", "presets"]];
+const TOOLS = ["merge", "split", "rotate-right", "rotate-left", "rotate-180", "compress", "to-images", "to-text"];
+const GROUPS = ["image", "audio", "video", "document", "pdf"];
+const INSTALL = { ffmpeg: "winget install Gyan.FFmpeg", libreoffice: "winget install TheDocumentFoundation.LibreOffice" };
+
+let lang = "tr";
+try { lang = localStorage.getItem("lang") || (navigator.language || "tr").slice(0, 2); } catch (_) {}
+if (!I18N[lang]) lang = "en";
+const t = (k) => (I18N[lang][k] ?? I18N.en[k] ?? k);
+
+let S = null;       // sunucudan gelen durum
+let V = null;       // düzenlenen değerler
+let saved = "";     // son kaydedilen değerler (JSON), değişiklik denetimi için
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "text") e.textContent = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined) e.append(kid);
+  return e;
+}
+
+async function api(path, body) {
+  const opt = { method: body === undefined ? (path === "/api/state" ? "GET" : "POST") : "POST", headers: { "X-Token": TOKEN } };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = null;
+  try { data = await r.json(); } catch (_) {}
+  return { ok: r.ok, data };
+}
+
+function message(text, kind = "") {
+  const m = document.getElementById("msg");
+  m.textContent = text;
+  m.className = "msg " + kind;
+}
+
+function markDirty() {
+  const dirty = JSON.stringify(V) !== saved;
+  document.getElementById("save").disabled = !dirty;
+  document.getElementById("reset").hidden = !dirty;
+  if (dirty) message(t("unsaved"));
+  else if (document.getElementById("msg").textContent === t("unsaved")) message("");
+}
+
+function translateStatic() {
+  document.documentElement.lang = lang;
+  document.title = t("title");
+  for (const n of document.querySelectorAll("[data-t]")) n.textContent = t(n.dataset.t);
+  document.getElementById("lang").value = lang;
+}
+
+function renderTabs() {
+  const nav = document.getElementById("tabs");
+  nav.replaceChildren();
+  const current = location.hash.slice(1) || "general";
+  for (const [id, key] of TABS) {
+    nav.append(el("button", {
+      role: "tab", type: "button", "aria-selected": String(id === current), "aria-controls": id, text: t(key),
+      onclick: () => { location.hash = id; },
+    }));
+    document.getElementById(id).hidden = id !== current;
+  }
+}
+
+function choices(container, name, options, current, onPick) {
+  container.replaceChildren(...options.map(([value, title, hint, badge]) =>
+    el("label", { class: "choice" },
+      el("input", { type: "radio", name, value, checked: value === current, onchange: () => onPick(value) }),
+      el("span", {}, el("strong", { text: title }), badge || null, el("p", { class: "hint", text: hint })))));
+}
+
+function badge(ok, yes, no) { return el("span", { class: "badge" + (ok ? " ok" : ""), text: ok ? yes : no }); }
+
+function renderGeneral() {
+  const kd = document.getElementById("keep_dates");
+  kd.checked = V.keep_dates;
+  kd.onchange = () => { V.keep_dates = kd.checked; markDirty(); };
+  choices(document.getElementById("metadata"), "metadata",
+    ["keep", "strip-location", "strip"].map((m) => [m, t("m_" + m.replace("-", "_")), t("m_" + m.replace("-", "_") + "_hint")]),
+    V.metadata, (v) => { V.metadata = v; markDirty(); });
+  document.getElementById("config_path").textContent = S.config_path;
+}
+
+function renderPdf() {
+  const d = S.detected;
+  const office = d.office.length > 0, lo = !!d.libreoffice;
+  choices(document.getElementById("engine"), "engine", [
+    ["auto", t("e_auto"), t("e_auto_hint")],
+    ["office", t("e_office"), t("e_office_hint"), badge(office, t("installed"), t("not_installed"))],
+    ["libreoffice", t("e_libreoffice"), t("e_libreoffice_hint"), badge(lo, t("installed"), t("not_installed"))],
+    ["builtin", t("e_builtin"), t("e_builtin_hint")],
+  ], V.pdf_engine, (v) => { V.pdf_engine = v; markDirty(); });
+}
+
+function copyButton(text) {
+  const b = el("button", { class: "btn small", type: "button", text: t("copy") });
+  b.onclick = async () => { try { await navigator.clipboard.writeText(text); b.textContent = t("copied"); } catch (_) {} };
+  return b;
+}
+
+function renderTools() {
+  const d = S.detected;
+  const cards = [];
+  for (const [key, field] of [["ffmpeg", "ffmpeg_path"], ["browser", "browser_path"], ["libreoffice", "libreoffice_path"]]) {
+    const found = d[key];
+    const input = el("input", { type: "text", value: V[field], placeholder: t("path_auto"), "aria-label": t("t_" + key), spellcheck: "false" });
+    input.oninput = () => { V[field] = input.value; markDirty(); };
+    cards.push(el("div", { class: "card" },
+      el("h3", { text: t("t_" + key) }),
+      el("p", { class: "status " + (found ? "ok" : "warn") },
+        (found ? "✓ " + t("found") + ": " : "! " + t("not_found")), found ? el("span", { class: "mono", text: found }) : null),
+      !found && INSTALL[key] ? el("p", { class: "hint row" }, el("span", { text: t("install_with") }), el("code", { text: INSTALL[key] }), copyButton(INSTALL[key])) : null,
+      input));
+  }
+  const apps = d.office;
+  cards.push(el("div", { class: "card" },
+    el("h3", { text: t("t_office") }),
+    el("p", { class: "status " + (apps.length ? "ok" : "warn"), text: apps.length ? "✓ " + apps.join(", ") : "! " + t("not_installed") })));
+  document.getElementById("tool_cards").replaceChildren(...cards);
+}
+
+function renderMenu() {
+  const own = new Set(V.presets.map((p) => p.id));
+  const groups = { image: [], pdf: [], media: [] };
+  for (const b of S.builtins) groups[b.group].push(b);
+  const cards = Object.entries(groups).map(([g, items]) => el("div", { class: "card" },
+    el("h3", { text: t("g_" + g) }),
+    el("div", { class: "checks" }, items.map((b) => {
+      const cb = el("input", { type: "checkbox", checked: !V.hide.includes(b.id) });
+      cb.onchange = () => {
+        V.hide = V.hide.filter((x) => x !== b.id);
+        if (!cb.checked) V.hide.push(b.id);
+        markDirty();
+      };
+      return el("label", {}, cb, el("span", { text: b.label }), own.has(b.id) ? el("span", { class: "badge", text: t("overridden") }) : null);
+    }))));
+  document.getElementById("menu_groups").replaceChildren(...cards);
+}
+
+function presetSummary(p) {
+  const kind = p.kind === "pdf-tool" ? t("k_pdf_tool") + " · " + t("tool_" + p.tool) : (p.kind === "image" ? t("k_image") : t("k_ffmpeg"));
+  return [kind, "→ ." + p.output, p.suffix ? "-" + p.suffix : null, (p.input || []).join(", ")].filter(Boolean).join("  ·  ");
+}
+
+function renderPresets() {
+  const list = document.getElementById("preset_list");
+  if (!V.presets.length) { list.replaceChildren(el("p", { class: "empty", text: t("no_presets") })); return; }
+  list.replaceChildren(...V.presets.map((p, i) => el("div", { class: "item" },
+    el("div", { class: "grow" },
+      el("div", {}, el("strong", { text: p.label }), el("span", { class: "badge", text: p.id })),
+      el("div", { class: "meta", text: presetSummary(p) })),
+    el("button", { class: "btn small", type: "button", text: t("edit"), onclick: () => openEditor(i) }),
+    el("button", { class: "btn small danger", type: "button", text: t("del"), onclick: () => {
+      if (confirm(t("confirm_delete"))) { V.presets.splice(i, 1); renderAll(); markDirty(); }
+    } }))));
+}
+
+// ---- Preset düzenleyici ----
+let editing = -1;
+let idTouched = false;
+const $ = (id) => document.getElementById(id);
+
+function slug(s) {
+  const map = { "ç": "c", "ğ": "g", "ı": "i", "ö": "o", "ş": "s", "ü": "u", "İ": "i" };
+  return s.toLowerCase().replace(/[çğıöşüİ]/g, (c) => map[c] || c).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+}
+
+function splitArgs(s) {
+  const out = []; let cur = ""; let q = null; let has = false;
+  for (const c of s) {
+    if (q) { if (c === q) q = null; else cur += c; }
+    else if (c === '"' || c === "'") { q = c; has = true; }
+    else if (/\s/.test(c)) { if (cur || has) out.push(cur); cur = ""; has = false; }
+    else cur += c;
+  }
+  if (cur || has) out.push(cur);
+  return out;
+}
+const joinArgs = (a) => (a || []).map((x) => (/[\s"]/.test(x) || x === "" ? "'" + x + "'" : x)).join(" ");
+
+function fillOutputs() {
+  const kind = $("f_kind").value, tool = $("f_tool").value;
+  const sel = $("f_output_sel"), txt = $("f_output_txt");
+  let opts = null;
+  if (kind === "image") opts = S.formats.map((f) => [f.ext, f.label]);
+  else if (kind === "pdf-tool") opts = tool === "to-images" ? [["png", "PNG"], ["jpg", "JPG"]] : tool === "to-text" ? [["txt", "TXT"]] : [["pdf", "PDF"]];
+  sel.hidden = !opts; txt.hidden = !!opts;
+  if (opts) {
+    const keep = sel.value;
+    sel.replaceChildren(...opts.map(([v, l]) => el("option", { value: v, text: l })));
+    if (opts.some(([v]) => v === keep)) sel.value = keep;
+  }
+}
+
+function updateEditorVisibility() {
+  const kind = $("f_kind").value, tool = $("f_tool").value;
+  const out = $("f_output_sel").hidden ? $("f_output_txt").value : $("f_output_sel").value;
+  $("w_tool").hidden = kind !== "pdf-tool";
+  $("w_args").hidden = kind !== "ffmpeg";
+  const img = kind === "image", compress = kind === "pdf-tool" && tool === "compress", toImg = kind === "pdf-tool" && tool === "to-images";
+  $("w_image").hidden = !(img || compress || toImg);
+  $("w_quality").hidden = !(img || compress || (toImg && out === "jpg"));
+  $("w_dpi").hidden = !toImg;
+  $("w_maxw").hidden = !(img || compress);
+  $("w_maxh").hidden = !img;
+  $("w_bg").hidden = !(img && out === "jpg");
+  $("w_maxw").querySelector("span").textContent = compress ? t("f_max_side") : t("f_max_w");
+}
+
+function openEditor(index) {
+  editing = index;
+  const p = index >= 0 ? V.presets[index] : { id: "", label: "", kind: "image", output: "jpg", input: ["image"] };
+  idTouched = index >= 0;
+  $("editor_title").textContent = index >= 0 ? t("edit_preset") : t("new_preset");
+  $("editor_errors").hidden = true;
+  $("f_label").value = p.label; $("f_id").value = p.id; $("f_kind").value = p.kind;
+  $("f_tool").replaceChildren(...TOOLS.map((x) => el("option", { value: x, text: t("tool_" + x) })));
+  $("f_tool").value = p.tool || "compress";
+  fillOutputs();
+  if ($("f_output_sel").hidden) $("f_output_txt").value = p.output || ""; else $("f_output_sel").value = p.output;
+  $("f_suffix").value = p.suffix || "";
+  const inputs = p.input || [];
+  $("f_groups").replaceChildren(...GROUPS.map((g) => el("label", {},
+    el("input", { type: "checkbox", value: g, checked: inputs.includes(g) }), el("span", { text: t("grp_" + g) }))));
+  $("f_exts").value = inputs.filter((x) => !GROUPS.includes(x)).join(", ");
+  $("f_quality").value = p.quality ?? ""; $("f_dpi").value = p.dpi ?? "";
+  $("f_max_w").value = p.max_width ?? ""; $("f_max_h").value = p.max_height ?? "";
+  $("f_bg").value = p.background || "#ffffff";
+  $("f_args").value = joinArgs(p.args);
+  updateEditorVisibility();
+  $("editor").showModal();
+  $("f_label").focus();
+}
+
+function readEditor() {
+  const kind = $("f_kind").value;
+  const num = (id) => { const v = $(id).value.trim(); return v === "" ? undefined : Number(v); };
+  const visible = (id) => !$(id).closest("[hidden]");
+  const input = [...$("f_groups").querySelectorAll("input:checked")].map((c) => c.value)
+    .concat($("f_exts").value.split(",").map((x) => x.trim().replace(/^\./, "").toLowerCase()).filter(Boolean));
+  const p = {
+    id: $("f_id").value.trim(), label: $("f_label").value.trim(), kind,
+    output: ($("f_output_sel").hidden ? $("f_output_txt").value : $("f_output_sel").value).trim().replace(/^\./, "").toLowerCase(),
+    input,
+  };
+  const suffix = $("f_suffix").value.trim(); if (suffix) p.suffix = suffix;
+  if (kind === "pdf-tool") p.tool = $("f_tool").value;
+  if (visible("f_quality") && num("f_quality") !== undefined) p.quality = num("f_quality");
+  if (visible("f_dpi") && num("f_dpi") !== undefined) p.dpi = num("f_dpi");
+  if (visible("f_max_w") && num("f_max_w") !== undefined) p.max_width = num("f_max_w");
+  if (visible("f_max_h") && num("f_max_h") !== undefined) p.max_height = num("f_max_h");
+  if (visible("f_bg") && $("f_bg").value.toLowerCase() !== "#ffffff") p.background = $("f_bg").value;
+  if (kind === "ffmpeg") { const a = splitArgs($("f_args").value); if (a.length) p.args = a; }
+  return p;
+}
+
+function editorErrors(p) {
+  const e = [];
+  if (!p.label) e.push(t("need_label"));
+  if (!/^[A-Za-z0-9_.-]+$/.test(p.id)) e.push(t("need_id"));
+  if (V.presets.some((x, i) => i !== editing && x.id.toLowerCase() === p.id.toLowerCase())) e.push(t("dup_id"));
+  if (!p.output) e.push(t("need_output"));
+  if (!p.input.length) e.push(t("need_input"));
+  return e;
+}
+
+function showErrors(list, items) {
+  list.replaceChildren(...items.map((x) => el("li", { text: x })));
+  list.hidden = items.length === 0;
+}
+
+$("f_label").addEventListener("input", () => { if (!idTouched) $("f_id").value = slug($("f_label").value); });
+$("f_id").addEventListener("input", () => { idTouched = true; });
+$("f_kind").addEventListener("change", () => { fillOutputs(); updateEditorVisibility(); });
+$("f_tool").addEventListener("change", () => { fillOutputs(); updateEditorVisibility(); });
+$("f_output_sel").addEventListener("change", updateEditorVisibility);
+$("editor_cancel").addEventListener("click", () => $("editor").close());
+$("editor_form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const p = readEditor();
+  const errs = editorErrors(p);
+  if (errs.length) { showErrors($("editor_errors"), errs); return; }
+  if (editing >= 0) V.presets[editing] = p; else V.presets.push(p);
+  $("editor").close();
+  renderAll(); markDirty();
+});
+
+// ---- Genel akış ----
+function renderAll() {
+  translateStatic();
+  renderTabs();
+  if (!S) return;
+  document.getElementById("ver").textContent = "v" + S.version;
+  renderGeneral(); renderPdf(); renderTools(); renderMenu(); renderPresets();
+}
+
+async function load() {
+  const r = await api("/api/state");
+  if (!r.ok) { message(t("load_failed") + " " + (r.data && r.data.error || ""), "bad"); return; }
+  S = r.data;
+  V = structuredClone(S.values);
+  saved = JSON.stringify(V);
+  renderAll();
+  markDirty();
+  if (S.warnings.length) message(S.warnings.join(" · "), "bad");
+}
+
+document.getElementById("save").addEventListener("click", async () => {
+  message(t("saving"));
+  const r = await api("/api/save", V);
+  if (!r.ok) {
+    const errs = (r.data && r.data.errors || []).map(([k, e]) => (k ? k + ": " : "") + e);
+    message(t("save_failed") + " " + errs.join(" · "), "bad");
+    return;
+  }
+  saved = JSON.stringify(V);
+  markDirty();
+  if (r.data.menu_error) message(t("menu_failed") + " " + r.data.menu_error, "bad");
+  else message(S.windows ? t("saved") : t("saved_no_menu"), "ok");
+});
+document.getElementById("reset").addEventListener("click", () => { V = JSON.parse(saved); renderAll(); markDirty(); });
+document.getElementById("add_preset").addEventListener("click", () => openEditor(-1));
+document.getElementById("open_file").addEventListener("click", () => api("/api/open-file", {}));
+document.getElementById("lang").addEventListener("change", (e) => {
+  lang = e.target.value;
+  try { localStorage.setItem("lang", lang); } catch (_) {}
+  renderAll();
+});
+addEventListener("hashchange", renderTabs);
+addEventListener("beforeunload", (e) => { if (V && JSON.stringify(V) !== saved) { e.preventDefault(); e.returnValue = ""; } });
+setInterval(async () => {
+  try { const r = await api("/api/ping", {}); if (!r.ok) throw 0; } catch (_) { message(t("lost"), "bad"); }
+}, 5000);
+translateStatic();
+renderTabs();
+load();
+</script>
+</body>
+</html>

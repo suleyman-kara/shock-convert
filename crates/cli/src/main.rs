@@ -11,6 +11,7 @@ mod platform;
 mod plugins;
 mod presets;
 mod run;
+mod settings_ui;
 
 use std::path::PathBuf;
 
@@ -51,6 +52,12 @@ enum Command {
     Install,
     /// Menüyü ve kurulumu tamamen kaldırır
     Uninstall,
+    /// Ayarlar penceresini açar
+    Settings {
+        /// Pencere açmadan adresi yazar (sorun giderme)
+        #[arg(long, hide = true)]
+        print_url: bool,
+    },
 }
 
 fn plugins_dir() -> PathBuf {
@@ -72,7 +79,7 @@ pub(crate) fn entries_for(plugins_dir: &std::path::Path) -> Vec<menu::Entry> {
     menu::build(&settings, &plugins)
 }
 
-fn load_entries() -> Vec<menu::Entry> {
+pub(crate) fn load_entries() -> Vec<menu::Entry> {
     entries_for(&plugins_dir())
 }
 
@@ -114,6 +121,14 @@ fn main() {
         Command::Unregister => finish("Menü kaldırıldı.", platform::unregister()),
         Command::Install => finish("Shock Convert kuruldu.", platform::install()),
         Command::Uninstall => finish("Shock Convert kaldırıldı.", platform::uninstall()),
+        Command::Settings { print_url } => match settings_ui::open(print_url) {
+            Ok(()) => 0,
+            Err(e) => {
+                log::line(&format!("ayarlar: {e}"));
+                platform::notify("Shock Convert", &e);
+                1
+            }
+        },
     };
     std::process::exit(code);
 }

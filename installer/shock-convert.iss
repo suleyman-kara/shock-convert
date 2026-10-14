@@ -36,6 +36,14 @@ Source: "..\third_party\pdfium\win-x64\bin\pdfium.dll"; DestDir: "{app}"; Flags:
 Source: "..\third_party\pdfium\win-x64\LICENSE"; DestDir: "{app}\licenses\pdfium"; Flags: ignoreversion
 Source: "..\third_party\pdfium\win-x64\licenses\*"; DestDir: "{app}\licenses\pdfium"; Flags: ignoreversion
 
+[CustomMessages]
+turkish.SettingsName=Shock Convert Ayarları
+english.SettingsName=Shock Convert Settings
+
+[Icons]
+; Başlat menüsünden ayarlar penceresi (sağ tık menüsünün sonunda da "Ayarlar…" var).
+Name: "{userprograms}\{cm:SettingsName}"; Filename: "{app}\shock-convert.exe"; Parameters: "settings"; IconFilename: "{app}\shock-convert.exe"
+
 [Run]
 ; Menüyü (eklentiler dahil) kayıt defterine yazar.
 Filename: "{app}\shock-convert.exe"; Parameters: "register"; Flags: runhidden

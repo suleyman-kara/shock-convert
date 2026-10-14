@@ -33,6 +33,16 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 - [ ] `winget install TheDocumentFoundation.LibreOffice` sonrası aynı `.docx` ▸ PDF: LibreOffice çıktısı (düzen Word'e daha yakın); `.doc`/`.odt` de çalışıyor.
 - [ ] Edge açıkken de PDF dönüştürme çalışıyor (ayrı profil kullanılır).
 
+## Ayarlar penceresi
+- [ ] Sağ tık ▸ Shock Convert ▸ en altta ayırıcıdan sonra **Ayarlar…** var; tıklayınca sekmesiz bir pencere açılıyor.
+- [ ] Başlat menüsünde **Shock Convert Ayarları** var ve aynı pencereyi açıyor.
+- [ ] Araçlar sekmesi Edge'i, (kuruluysa) ffmpeg'i, LibreOffice'i ve Office uygulamalarını doğru gösteriyor.
+- [ ] Menü sekmesinde BMP'nin işaretini kaldır ▸ Kaydet: sağ tık menüsünde BMP kalmadı.
+- [ ] Preset'lerim ▸ Yeni preset (Görüntü, JPG, ek `web`, en fazla genişlik 1920) ▸ Kaydet: menüde göründü, `foto-web.jpg` üretti.
+- [ ] Genel ▸ "Konumu sil" ▸ Kaydet: telefon fotoğrafı ▸ JPG çıktısında konum yok, kamera bilgisi var.
+- [ ] Genel ▸ tarih anahtarını kapat ▸ Kaydet: çıktının tarihi "şimdi".
+- [ ] Pencereyi kapatınca Görev Yöneticisi'nde `shock-convert.exe` en geç yarım dakikada kayboluyor.
+
 ## PDF işlemleri
 - [ ] 3–4 PDF ve bir görüntü seçip ▸ PDF: Birleştir: tek bildirim, tek `<ilk-ad>-birleşik.pdf`, sayfa sırası dosya adlarının doğal sırası.
 - [ ] Çok sayfalı PDF ▸ PDF: Sayfalara böl: her sayfa ayrı dosya, Edge'de doğru açılıyor.

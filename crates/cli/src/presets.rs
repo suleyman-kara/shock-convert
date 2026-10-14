@@ -3,12 +3,12 @@
 
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use shock_convert_core::Format;
 
 use crate::config;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     /// Süreç içinde, harici program olmadan (Rust `image`).
@@ -72,36 +72,55 @@ impl Default for Settings {
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
-struct FileModel {
-    ffmpeg_path: Option<String>,
-    browser_path: Option<String>,
-    libreoffice_path: Option<String>,
-    pdf_engine: Option<String>,
-    keep_dates: Option<bool>,
-    metadata: Option<String>,
+/// `presets.toml`'un ham hali (ayarlar arayüzü de bunu okur ve yazar).
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub(crate) struct FileModel {
+    pub ffmpeg_path: Option<String>,
+    pub browser_path: Option<String>,
+    pub libreoffice_path: Option<String>,
+    pub pdf_engine: Option<String>,
+    pub keep_dates: Option<bool>,
+    pub metadata: Option<String>,
     #[serde(default)]
-    hide: Vec<String>,
+    pub hide: Vec<String>,
     #[serde(default)]
-    preset: Vec<RawPreset>,
+    pub preset: Vec<RawPreset>,
 }
 
-#[derive(Debug, Deserialize)]
-struct RawPreset {
-    id: String,
-    label: String,
-    kind: Kind,
-    output: String,
-    input: Vec<String>,
-    suffix: Option<String>,
-    quality: Option<u8>,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    background: Option<String>,
-    #[serde(default)]
-    args: Vec<String>,
-    tool: Option<String>,
-    dpi: Option<u32>,
+/// Dosyadaki bir preset, doğrulanmamış haliyle.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct RawPreset {
+    pub id: String,
+    pub label: String,
+    pub kind: Kind,
+    pub output: String,
+    pub input: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suffix: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quality: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dpi: Option<u32>,
+}
+
+/// Dosyayı ham haliyle okur. Dosya yoksa boş model döner.
+pub(crate) fn read_file() -> Result<FileModel, String> {
+    let path = config::presets_path();
+    match std::fs::read_to_string(&path) {
+        Ok(text) => toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(FileModel::default()),
+        Err(e) => Err(format!("{}: {e}", path.display())),
+    }
 }
 
 const AUDIO: &[&str] = &[
@@ -150,7 +169,7 @@ fn parse_color(s: &str) -> Option<[u8; 3]> {
 }
 
 impl RawPreset {
-    fn into_preset(self) -> Result<Preset, String> {
+    pub(crate) fn into_preset(self) -> Result<Preset, String> {
         if self.id.is_empty() || self.id.contains([':', '\\', '/', ' ']) {
             return Err(format!("geçersiz id: `{}`", self.id));
         }
@@ -571,6 +590,11 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 "##;
 
 /// `presets.toml` yoksa açıklamalı örnek dosyayı yazar (varsa dokunmaz). Yolu döndürür.
+/// Açıklamalı örnek dosyanın metni (dosya yokken ayarlar arayüzü bunun üzerine yazar).
+pub(crate) fn sample() -> &'static str {
+    SAMPLE
+}
+
 pub fn ensure_sample() -> std::io::Result<PathBuf> {
     let path = config::presets_path();
     if !path.exists() {

@@ -131,6 +131,30 @@ jobs:
             throw "PDF -> PNG calismadi (pdfium.dll yuklenemedi mi?)"
           }
           exit 0
+      - name: Ayarlar sunucusu Windows'ta çalışıyor mu
+        shell: pwsh
+        run: |
+          $d = Join-Path $env:RUNNER_TEMP "settings-smoke"
+          New-Item -ItemType Directory -Force $d | Out-Null
+          $env:SHOCK_CONVERT_CONFIG_DIR = Join-Path $d "cfg"
+          $out = Join-Path $d "url.txt"
+          $p = Start-Process target/release/shock-convert.exe -ArgumentList "settings", "--print-url" -RedirectStandardOutput $out -PassThru
+          for ($i = 0; $i -lt 50; $i++) {
+            if ((Test-Path $out) -and (Get-Content $out -Raw)) { break }
+            Start-Sleep -Milliseconds 200
+          }
+          $url = (Get-Content $out | Select-Object -First 1).Trim()
+          Write-Host "Adres: $($url -replace 't=.*', 't=...')"
+          $page = Invoke-WebRequest -Uri $url -UseBasicParsing
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch "Shock Convert") { throw "ayarlar sayfasi gelmedi" }
+          $token = ([uri]$url).Query -replace '^\?t=', ''
+          $base = $url -replace '/\?t=.*$', ''
+          $state = Invoke-RestMethod -Uri "$base/api/state" -Headers @{ "X-Token" = $token }
+          Write-Host "Office: $($state.detected.office -join ', ') | tarayici: $($state.detected.browser)"
+          if (-not $state.detected.browser) { throw "Edge bulunamadi" }
+          Invoke-RestMethod -Method Post -Uri "$base/api/close" -Headers @{ "X-Token" = $token } | Out-Null
+          if (-not $p.WaitForExit(10000)) { $p.Kill(); throw "sunucu kapanmadi" }
+          exit 0
       - name: Office PDF betiği (Windows PowerShell 5.1)
         shell: powershell
         run: |
