@@ -3,12 +3,12 @@
 
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use shock_convert_core::Format;
 
 use crate::config;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     /// Süreç içinde, harici program olmadan (Rust `image`).
@@ -39,56 +39,98 @@ pub struct Preset {
     pub background: Option<[u8; 3]>,
     // ffmpeg
     pub args: Vec<String>,
-    // pdf-tool: merge | split | rotate-right | rotate-left | rotate-180
+    // pdf-tool: merge | split | rotate-right | rotate-left | rotate-180 | to-images | to-text | compress
     pub tool: Option<crate::pdf::tools::Tool>,
+    /// pdf-tool to-images: çözünürlük (varsayılan 150).
+    pub dpi: Option<u32>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Settings {
     pub presets: Vec<Preset>,
     pub ffmpeg_path: Option<PathBuf>,
     pub browser_path: Option<PathBuf>,
     pub libreoffice_path: Option<PathBuf>,
     pub pdf_engine: crate::pdf::Engine,
+    /// Çıktı kaynağın tarihlerini taşısın mı (varsayılan evet).
+    pub keep_dates: bool,
+    /// Görüntülerde EXIF politikası (varsayılan: koru).
+    pub metadata: shock_convert_core::Metadata,
 }
 
-#[derive(Debug, Default, Deserialize)]
-struct FileModel {
-    ffmpeg_path: Option<String>,
-    browser_path: Option<String>,
-    libreoffice_path: Option<String>,
-    pdf_engine: Option<String>,
-    #[serde(default)]
-    hide: Vec<String>,
-    #[serde(default)]
-    preset: Vec<RawPreset>,
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            presets: Vec::new(),
+            ffmpeg_path: None,
+            browser_path: None,
+            libreoffice_path: None,
+            pdf_engine: crate::pdf::Engine::default(),
+            keep_dates: true,
+            metadata: shock_convert_core::Metadata::default(),
+        }
+    }
 }
 
-#[derive(Debug, Deserialize)]
-struct RawPreset {
-    id: String,
-    label: String,
-    kind: Kind,
-    output: String,
-    input: Vec<String>,
-    suffix: Option<String>,
-    quality: Option<u8>,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    background: Option<String>,
+/// `presets.toml`'un ham hali (ayarlar arayüzü de bunu okur ve yazar).
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub(crate) struct FileModel {
+    pub ffmpeg_path: Option<String>,
+    pub browser_path: Option<String>,
+    pub libreoffice_path: Option<String>,
+    pub pdf_engine: Option<String>,
+    pub keep_dates: Option<bool>,
+    pub metadata: Option<String>,
     #[serde(default)]
-    args: Vec<String>,
-    tool: Option<String>,
+    pub hide: Vec<String>,
+    #[serde(default)]
+    pub preset: Vec<RawPreset>,
 }
 
-const AUDIO: &[&str] = &[
+/// Dosyadaki bir preset, doğrulanmamış haliyle.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct RawPreset {
+    pub id: String,
+    pub label: String,
+    pub kind: Kind,
+    pub output: String,
+    pub input: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suffix: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quality: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dpi: Option<u32>,
+}
+
+/// Dosyayı ham haliyle okur. Dosya yoksa boş model döner.
+pub(crate) fn read_file() -> Result<FileModel, String> {
+    let path = config::presets_path();
+    match std::fs::read_to_string(&path) {
+        Ok(text) => toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(FileModel::default()),
+        Err(e) => Err(format!("{}: {e}", path.display())),
+    }
+}
+
+pub(crate) const AUDIO: &[&str] = &[
     "mp3", "wav", "flac", "ogg", "oga", "opus", "m4a", "aac", "wma", "aiff", "aif",
 ];
-const DOCUMENT: &[&str] = &[
+pub(crate) const DOCUMENT: &[&str] = &[
     "docx", "xlsx", "pptx", "doc", "xls", "ppt", "rtf", "odt", "ods", "odp", "txt", "md",
     "markdown", "html", "htm",
 ];
-const VIDEO: &[&str] = &[
+pub(crate) const VIDEO: &[&str] = &[
     "mp4", "mkv", "avi", "mov", "webm", "wmv", "flv", "m4v", "3gp", "mpg", "mpeg", "ts",
 ];
 
@@ -127,7 +169,7 @@ fn parse_color(s: &str) -> Option<[u8; 3]> {
 }
 
 impl RawPreset {
-    fn into_preset(self) -> Result<Preset, String> {
+    pub(crate) fn into_preset(self) -> Result<Preset, String> {
         if self.id.is_empty() || self.id.contains([':', '\\', '/', ' ']) {
             return Err(format!("geçersiz id: `{}`", self.id));
         }
@@ -146,17 +188,28 @@ impl RawPreset {
         }
         let tool = match (self.kind, self.tool.as_deref()) {
             (Kind::PdfTool, Some(t)) => Some(crate::pdf::tools::Tool::parse(t).ok_or(format!(
-                "`{}`: geçersiz tool `{t}` (merge | split | rotate-right | rotate-left | rotate-180)",
+                "`{}`: geçersiz tool `{t}` (merge | split | rotate-right | rotate-left | rotate-180 | to-images | to-text | compress)",
                 self.id
             ))?),
             (Kind::PdfTool, None) => return Err(format!("`{}`: kind = \"pdf-tool\" için tool gerekli", self.id)),
             _ => None,
         };
-        if self.kind == Kind::PdfTool && output != "pdf" {
-            return Err(format!(
-                "`{}`: kind = \"pdf-tool\" için output \"pdf\" olmalı",
-                self.id
-            ));
+        if let Some(tool) = tool {
+            use crate::pdf::tools::Tool;
+            let (ok, expected) = match tool {
+                Tool::ToImages => (
+                    matches!(output.as_str(), "png" | "jpg"),
+                    "\"png\" ya da \"jpg\"",
+                ),
+                Tool::ToText => (output == "txt", "\"txt\""),
+                _ => (output == "pdf", "\"pdf\""),
+            };
+            if !ok {
+                return Err(format!(
+                    "`{}`: bu PDF işlemi için output {expected} olmalı",
+                    self.id
+                ));
+            }
         }
         let background = match &self.background {
             Some(c) => Some(parse_color(c).ok_or(format!("`{}`: geçersiz renk `{c}`", self.id))?),
@@ -179,6 +232,7 @@ impl RawPreset {
             background,
             args: self.args,
             tool,
+            dpi: self.dpi,
         })
     }
 }
@@ -197,6 +251,7 @@ fn image_preset(f: Format) -> Preset {
         background: None,
         args: vec![],
         tool: None,
+        dpi: None,
     }
 }
 
@@ -214,6 +269,7 @@ fn ffmpeg_preset(id: &str, label: &str, input: &[&str], args: &[&str]) -> Preset
         background: None,
         args: args.iter().map(|s| s.to_string()).collect(),
         tool: None,
+        dpi: None,
     }
 }
 
@@ -233,13 +289,16 @@ pub fn defaults() -> Vec<Preset> {
         background: None,
         args: vec![],
         tool: None,
+        dpi: None,
     });
     use crate::pdf::tools::Tool;
-    for (id, label, tool, suffix, input) in [
+    let pdf = || vec!["pdf".to_string()];
+    for (id, label, tool, output, suffix, input) in [
         (
             "pdf-merge",
             "PDF: Birleştir",
             Tool::Merge,
+            "pdf",
             "birleşik",
             vec!["pdf".to_string(), "image".to_string()],
         ),
@@ -247,44 +306,81 @@ pub fn defaults() -> Vec<Preset> {
             "pdf-split",
             "PDF: Sayfalara böl",
             Tool::Split,
+            "pdf",
             "sayfa",
-            vec!["pdf".to_string()],
+            pdf(),
         ),
         (
             "pdf-rotate-right",
             "PDF: 90° sağa döndür",
             Tool::RotateRight,
+            "pdf",
             "döndürülmüş",
-            vec!["pdf".to_string()],
+            pdf(),
         ),
         (
             "pdf-rotate-left",
             "PDF: 90° sola döndür",
             Tool::RotateLeft,
+            "pdf",
             "döndürülmüş",
-            vec!["pdf".to_string()],
+            pdf(),
         ),
         (
             "pdf-rotate-180",
             "PDF: 180° döndür",
             Tool::Rotate180,
+            "pdf",
             "döndürülmüş",
-            vec!["pdf".to_string()],
+            pdf(),
+        ),
+        (
+            "pdf-compress",
+            "PDF: Küçült",
+            Tool::Compress,
+            "pdf",
+            "küçük",
+            pdf(),
+        ),
+        (
+            "pdf-png",
+            "PDF: Görüntülere çevir (PNG)",
+            Tool::ToImages,
+            "png",
+            "sayfa",
+            pdf(),
+        ),
+        (
+            "pdf-jpg",
+            "PDF: Görüntülere çevir (JPG)",
+            Tool::ToImages,
+            "jpg",
+            "sayfa",
+            pdf(),
+        ),
+        (
+            "pdf-txt",
+            "PDF: Metne çevir (TXT)",
+            Tool::ToText,
+            "txt",
+            "",
+            pdf(),
         ),
     ] {
         v.push(Preset {
             id: id.into(),
             label: label.into(),
             kind: Kind::PdfTool,
-            output: "pdf".into(),
+            output: output.into(),
             input: expand_inputs(&input),
-            suffix: Some(suffix.into()),
+            suffix: (!suffix.is_empty()).then(|| suffix.into()),
             quality: None,
             max_width: None,
             max_height: None,
             background: None,
             args: vec![],
             tool: Some(tool),
+            dpi: None,
         });
     }
     v.extend([
@@ -376,6 +472,8 @@ pub fn load() -> (Settings, Vec<String>) {
     let mut ffmpeg_path = None;
     let (mut browser_path, mut libreoffice_path) = (None, None);
     let mut pdf_engine = crate::pdf::Engine::default();
+    let mut keep_dates = true;
+    let mut metadata = shock_convert_core::Metadata::default();
 
     let path = config::presets_path();
     if let Ok(text) = std::fs::read_to_string(&path) {
@@ -390,6 +488,16 @@ pub fn load() -> (Settings, Vec<String>) {
                         Some(engine) => pdf_engine = engine,
                         None => warnings.push(format!(
                             "{}: pdf_engine \"{e}\" geçersiz (auto | office | libreoffice | builtin)",
+                            path.display()
+                        )),
+                    }
+                }
+                keep_dates = file.keep_dates.unwrap_or(true);
+                if let Some(m) = file.metadata.as_deref() {
+                    match shock_convert_core::Metadata::parse(m) {
+                        Some(v) => metadata = v,
+                        None => warnings.push(format!(
+                            "{}: metadata \"{m}\" geçersiz (keep | strip-location | strip)",
                             path.display()
                         )),
                     }
@@ -415,6 +523,8 @@ pub fn load() -> (Settings, Vec<String>) {
             browser_path,
             libreoffice_path,
             pdf_engine,
+            keep_dates,
+            metadata,
         },
         warnings,
     )
@@ -440,6 +550,17 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 # Edge/Chrome ve LibreOffice otomatik bulunur; gerekirse yollarını verin:
 # browser_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
 # libreoffice_path = "C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+
+# PDF işlemleri (kind = "pdf-tool"), tool:
+#   merge | split | rotate-right | rotate-left | rotate-180   -> output = "pdf"
+#   compress  (quality = JPG kalitesi, max_width = resimlerin en uzun kenarı; varsayılan 70 / 1600)
+#   to-images (output = "png" | "jpg", dpi = çözünürlük; varsayılan 150)
+#   to-text   (output = "txt")
+
+# Çıktı dosyası kaynağın tarihlerini (oluşturma/değiştirme) taşısın mı:
+# keep_dates = true
+# Görüntülerde EXIF (kamera, tarih, konum): "keep" (koru), "strip-location" (konumu sil), "strip" (hepsini sil)
+# metadata = "keep"
 
 # Menüden gizlemek istediğiniz yerleşik preset'ler:
 # hide = ["bmp", "tiff", "ico"]
@@ -469,6 +590,11 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 "##;
 
 /// `presets.toml` yoksa açıklamalı örnek dosyayı yazar (varsa dokunmaz). Yolu döndürür.
+/// Açıklamalı örnek dosyanın metni (dosya yokken ayarlar arayüzü bunun üzerine yazar).
+pub(crate) fn sample() -> &'static str {
+    SAMPLE
+}
+
 pub fn ensure_sample() -> std::io::Result<PathBuf> {
     let path = config::presets_path();
     if !path.exists() {
@@ -561,6 +687,71 @@ input = ["image"]
                 assert_eq!(s.presets.iter().filter(|p| p.id == "mp3").count(), 1);
             },
         );
+    }
+
+    #[test]
+    fn pdf_tool_presets_check_output_per_tool() {
+        with_config(
+            Some(
+                r##"
+[[preset]]
+id = "pdf-tiff-300"
+label = "PDF: 300 dpi JPG"
+kind = "pdf-tool"
+tool = "to-images"
+output = "jpg"
+input = ["pdf"]
+dpi = 300
+[[preset]]
+id = "yanlis-metin"
+label = "x"
+kind = "pdf-tool"
+tool = "to-text"
+output = "pdf"
+input = ["pdf"]
+[[preset]]
+id = "yanlis-goruntu"
+label = "x"
+kind = "pdf-tool"
+tool = "to-images"
+output = "gif"
+input = ["pdf"]
+"##,
+            ),
+            || {
+                let (s, warnings) = load();
+                assert_eq!(warnings.len(), 2, "{warnings:?}");
+                assert!(
+                    warnings
+                        .iter()
+                        .any(|w| w.contains("yanlis-metin") && w.contains("txt"))
+                );
+                let p = s.presets.iter().find(|p| p.id == "pdf-tiff-300").unwrap();
+                assert_eq!((p.dpi, p.output.as_str()), (Some(300), "jpg"));
+            },
+        );
+    }
+
+    #[test]
+    fn behavior_settings_default_on_and_can_be_changed() {
+        with_config(None, || {
+            let (s, _) = load();
+            assert!(s.keep_dates);
+            assert_eq!(s.metadata, shock_convert_core::Metadata::Keep);
+        });
+        with_config(
+            Some("keep_dates = false\nmetadata = \"strip-location\"\n"),
+            || {
+                let (s, w) = load();
+                assert!(w.is_empty(), "{w:?}");
+                assert!(!s.keep_dates);
+                assert_eq!(s.metadata, shock_convert_core::Metadata::StripLocation);
+            },
+        );
+        with_config(Some("metadata = \"sil\"\n"), || {
+            let (_, w) = load();
+            assert!(w.iter().any(|w| w.contains("metadata")), "{w:?}");
+        });
     }
 
     #[test]

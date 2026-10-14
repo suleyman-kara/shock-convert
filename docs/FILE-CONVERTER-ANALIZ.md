@@ -40,7 +40,7 @@ File Converter **GPL-3.0** lisanslıdır, Shock Convert ise **Apache-2.0**. Bu y
 | 19 | Bozuk ayar dosyası | (Ayarlar uygulama içinden yönetilir) | Bozuk `presets.toml` uyarıyla atlanır, yerleşik preset'ler çalışmaya devam eder | ✅ Var |
 | 20 | Kaldırıcının artık bırakması | Bilinen upstream sorunu | Kaldırma menüyü, kayıt defterini, klasörü ve günlüğü siler (kullanıcı preset'i korunur) | ✅ Var |
 | 21 | Çok dosyalı seçim sınırı | Kabuk eklentisi sayesinde yok | Klasik menüde Explorer 15 dosya sınırı | 📋 #7 (kabuk eklentisi) bunu da çözer |
-| 22 | Süreç çökmesinde yarım dosya | — | Ad rezervasyonu nedeniyle süreç zorla sonlandırılırsa 0 baytlık çıktı kalabilir | 📋 Sonraya: geçici adla yazıp sonra yeniden adlandırma |
+| 22 | Süreç çökmesinde yarım dosya | — | Çıktı geçici adla (`ad.part.uzantı`) yazılıp bitince asıl ada taşınıyor (üzerine yazmadan); çökmede asıl adda dosya kalmaz, bir saatlik `.part` artığı yeniden kullanılır | ✅ **Düzeltildi** |
 | 23 | EXIF/ICC korunması | ImageMagick profilleri büyük ölçüde korur | JPG, PNG ve WebP'de EXIF (kamera, tarih, konum) ve ICC renk profili korunur; TIFF'te ICC korunur. Yön pikselere uygulandığı için EXIF yön etiketi sıfırlanır (görüntü iki kez dönmez). GIF/BMP/ICO bu verileri taşıyamaz | ✅ **Eklendi** |
 
 ## #6 (Office ile PDF) için çıkarılan dersler

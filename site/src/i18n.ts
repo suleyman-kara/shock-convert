@@ -18,7 +18,7 @@ const tr = {
     items: [
       { icon: "🖼️", t: "Görüntü", d: "PNG, JPG, WebP, BMP, GIF, TIFF, ICO. Şeffaflık, EXIF yönü ve çok boyutlu ICO dahil." },
       { icon: "🎧", t: "Ses ve video", d: "MP3, WAV, FLAC, OGG, M4A, MP4, WebM ve videodan GIF. ffmpeg ile." },
-      { icon: "📄", t: "PDF, Office olmadan", d: "Görüntü, metin, Markdown, Word, Excel ve PowerPoint belgelerini PDF'e çevirin." },
+      { icon: "📄", t: "PDF, Office olmadan", d: "Görüntü, metin ve Office belgelerini PDF'e çevirin; PDF'leri birleştirin, bölün, döndürün, küçültün, görüntüye ya da metne çevirin." },
       { icon: "⚡", t: "Hızlı ve hafif", d: "Rust ile yazılmış, birkaç megabaytlık tek program. Çoklu seçim paralel işlenir, tek bildirim gelir." },
       { icon: "🛡️", t: "Asla üzerine yazmaz", d: "foto.png → foto.jpg. Ad doluysa foto (1).jpg olur; mevcut dosyanız hiç değişmez." },
       { icon: "🧩", t: "Preset ve eklentiler", d: "\"Web için 1920px JPG\", \"720p MP4\" gibi kendi seçeneklerinizi ekleyin; eklentilerle genişletin." },
@@ -90,7 +90,7 @@ const en: Dict = {
     items: [
       { icon: "🖼️", t: "Images", d: "PNG, JPG, WebP, BMP, GIF, TIFF, ICO — with transparency, EXIF orientation and multi-size ICO." },
       { icon: "🎧", t: "Audio & video", d: "MP3, WAV, FLAC, OGG, M4A, MP4, WebM and GIF from video, powered by ffmpeg." },
-      { icon: "📄", t: "PDF without Office", d: "Turn images, text, Markdown, Word, Excel and PowerPoint documents into PDF." },
+      { icon: "📄", t: "PDF without Office", d: "Turn images, text and Office documents into PDF; merge, split, rotate and compress PDFs, or turn them into images or text." },
       { icon: "⚡", t: "Fast and light", d: "A single few-megabyte program written in Rust. Multiple files run in parallel with one notification." },
       { icon: "🛡️", t: "Never overwrites", d: "photo.png → photo.jpg. If the name is taken you get photo (1).jpg; your files stay untouched." },
       { icon: "🧩", t: "Presets & plugins", d: "Add your own options like \"1920px JPG for web\" or \"720p MP4\", and extend it with plugins." },

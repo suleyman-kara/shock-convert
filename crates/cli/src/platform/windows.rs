@@ -101,6 +101,26 @@ pub fn register(exe: &Path, entries: &[Entry]) -> Result<(), String> {
             cmd.set_value("", &format!("\"{exe}\" shell-run \"{}\" \"%1\"", entry.id))
                 .map_err(|e| e.to_string())?;
         }
+
+        // Alt menünün sonunda, ayırıcıdan sonra: özel dönüştürme ve ayarlar penceresi.
+        // "zy"/"zz" anahtarları sıralamada sona düşer.
+        for (key, label, args, separator) in [
+            ("zy-custom", "Özel dönüştür…", "shell-custom \"%1\"", true),
+            ("zz-settings", "Ayarlar…", "settings", false),
+        ] {
+            let (item, _) = hkcu()
+                .create_subkey(format!(r"{base}\shell\{key}"))
+                .map_err(|e| e.to_string())?;
+            item.set_value("MUIVerb", &label)
+                .map_err(|e| e.to_string())?;
+            if separator {
+                item.set_value("CommandFlags", &0x20u32) // ECF_SEPARATORBEFORE
+                    .map_err(|e| e.to_string())?;
+            }
+            let (cmd, _) = item.create_subkey("command").map_err(|e| e.to_string())?;
+            cmd.set_value("", &format!("\"{exe}\" {args}"))
+                .map_err(|e| e.to_string())?;
+        }
     }
     refresh_shell();
     Ok(())
@@ -158,6 +178,15 @@ pub fn install() -> Result<(), String> {
     let dest = dir.join("shock-convert.exe");
     if src != dest {
         std::fs::copy(&src, &dest).map_err(|e| format!("exe kopyalanamadı: {e}"))?;
+    }
+    // PDF'i görüntüye/metne çeviren PDFium kitaplığı exe'nin yanında durur.
+    if let Some(dll) = src
+        .parent()
+        .map(|p| p.join("pdfium.dll"))
+        .filter(|p| p.is_file() && *p != dir.join("pdfium.dll"))
+    {
+        std::fs::copy(&dll, dir.join("pdfium.dll"))
+            .map_err(|e| format!("pdfium.dll kopyalanamadı: {e}"))?;
     }
     if let Some(src_plugins) = src
         .parent()

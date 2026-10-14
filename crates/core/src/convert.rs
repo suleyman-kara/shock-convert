@@ -14,7 +14,7 @@ use image::{
 };
 
 use crate::format::Format;
-use crate::output::unique_output_path;
+use crate::output::reserve_output;
 
 pub const DEFAULT_JPEG_QUALITY: u8 = 90;
 const ICO_SIZES: [u32; 6] = [16, 32, 48, 64, 128, 256];
@@ -38,6 +38,40 @@ pub struct Options {
     pub background: [u8; 3],
     /// Dosya adına eklenen ek (`foto-<ek>.<uzantı>`). Boşsa ek yoktur: `foto.png` -> `foto.jpg`.
     pub suffix: Option<String>,
+    /// EXIF'in çıktıya ne kadarının taşınacağı.
+    pub metadata: Metadata,
+}
+
+/// EXIF (kamera, tarih, konum …) taşıma politikası. Renk profili (ICC) her durumda korunur:
+/// kişisel veri değildir ve atılması renkleri bozar.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Metadata {
+    /// Olduğu gibi korunur.
+    #[default]
+    Keep,
+    /// Konum (GPS) silinir, gerisi korunur.
+    StripLocation,
+    /// EXIF tamamen atılır.
+    Strip,
+}
+
+impl Metadata {
+    pub fn parse(s: &str) -> Option<Metadata> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "keep" => Some(Metadata::Keep),
+            "strip-location" => Some(Metadata::StripLocation),
+            "strip" => Some(Metadata::Strip),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Metadata::Keep => "keep",
+            Metadata::StripLocation => "strip-location",
+            Metadata::Strip => "strip",
+        }
+    }
 }
 
 impl Default for Options {
@@ -47,6 +81,7 @@ impl Default for Options {
             max_size: None,
             background: [255, 255, 255],
             suffix: None,
+            metadata: Metadata::Keep,
         }
     }
 }
@@ -63,18 +98,35 @@ pub fn convert_file_with(
     target: Format,
     opts: &Options,
 ) -> Result<PathBuf, ConvertError> {
-    let (mut img, meta) = load_with_meta(input)?;
+    let (mut img, mut meta) = load_with_meta(input)?;
+    match opts.metadata {
+        Metadata::Keep => {}
+        Metadata::StripLocation => {
+            if let Some(e) = meta.exif.as_mut() {
+                crate::exif::strip_gps(e);
+            }
+        }
+        Metadata::Strip => meta.exif = None,
+    }
     if let Some((mw, mh)) = opts.max_size {
         img = shrink_to_fit(img, mw, mh);
     }
-    let out = unique_output_path(input, opts.suffix.as_deref(), target.ext())?;
-    match write(&img, &out, target, opts, &meta) {
-        Ok(()) => Ok(out),
-        Err(e) => {
-            let _ = std::fs::remove_file(&out);
-            Err(e)
-        }
-    }
+    let out = reserve_output(input, opts.suffix.as_deref(), target.ext())?;
+    write(&img, out.path(), target, opts, &meta)?;
+    Ok(out.commit()?)
+}
+
+/// Bellekteki bir görüntüyü `out` yoluna `target` formatında yazar (ör. PDF sayfası çizimi).
+/// Meta veri yoktur; hata olursa yarım kalan dosya silinir.
+pub fn save_image(
+    img: &DynamicImage,
+    out: &Path,
+    target: Format,
+    opts: &Options,
+) -> Result<(), ConvertError> {
+    write(img, out, target, opts, &Meta::default()).inspect_err(|_| {
+        let _ = std::fs::remove_file(out);
+    })
 }
 
 /// Dosyayı açar ve EXIF yönünü uygular. Animasyonlu girdilerde ilk kare alınır.
@@ -361,6 +413,46 @@ mod tests {
                 "{target:?}: Make kaybolmuş"
             );
         }
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn metadata_policy_strips_location_or_everything() {
+        let d = temp_dir("meta-policy");
+        let input = d.join("konum.jpg");
+        {
+            let rgb = DynamicImage::ImageRgba8(RgbaImage::from_pixel(8, 8, Rgba([9, 9, 9, 255])))
+                .to_rgb8();
+            let mut enc = JpegEncoder::new(BufWriter::new(File::create(&input).unwrap()));
+            enc.set_exif_metadata(crate::exif::tests::exif_with_gps(true))
+                .unwrap();
+            DynamicImage::ImageRgb8(rgb)
+                .write_with_encoder(enc)
+                .unwrap();
+        }
+        let run = |m: Metadata, sfx: &str| {
+            let o = Options {
+                metadata: m,
+                suffix: Some(sfx.into()),
+                ..Options::default()
+            };
+            read_meta(&convert_file_with(&input, Format::Png, &o).unwrap())
+                .2
+                .exif
+        };
+        let kept = run(Metadata::Keep, "k").unwrap();
+        assert!(kept.windows(3).any(|w| w == b"Abc") && kept.windows(2).any(|w| w == b"N\0"));
+        let no_gps = run(Metadata::StripLocation, "g").unwrap();
+        assert!(
+            no_gps.windows(3).any(|w| w == b"Abc"),
+            "kamera bilgisi kalmalı"
+        );
+        assert!(no_gps[38..].iter().all(|&b| b == 0), "konum silinmeli");
+        assert!(run(Metadata::Strip, "s").is_none());
+        assert_eq!(
+            Metadata::parse("Strip-Location"),
+            Some(Metadata::StripLocation)
+        );
         let _ = fs::remove_dir_all(&d);
     }
 

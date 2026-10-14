@@ -5,7 +5,7 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use shock_convert_core::{Format, Options, convert_file_with, unique_output_path};
+use shock_convert_core::{Format, Options, convert_file_with, reserve_output};
 
 use crate::ffmpeg;
 use crate::menu::{Action, Entry, FfmpegJob};
@@ -51,18 +51,16 @@ impl Report {
 /// Dosyaları paralel işler. Sonuç sırası girdi sırasından bağımsızdır.
 pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
     // Birleştirme dosyaları tek tek değil, hep birlikte işler.
-    if let Action::PdfTool {
-        tool: crate::pdf::tools::Tool::Merge,
-        suffix,
-    } = &entry.action
+    if let Action::PdfTool(job) = &entry.action
+        && job.tool == crate::pdf::tools::Tool::Merge
     {
-        return merge_all(entry, files, suffix);
+        return merge_all(entry, files, &job.suffix);
     }
     let report = Mutex::new(Report::default());
     let next = AtomicUsize::new(0);
     // ffmpeg kendi içinde çok çekirdek kullanır; üst üste fazla süreç başlatma.
     let cap = match entry.action {
-        Action::Ffmpeg(_) | Action::Pdf(_) => 2,
+        Action::Ffmpeg(_) | Action::Pdf(_) | Action::PdfTool(_) => 2,
         _ => usize::MAX,
     };
     let workers = std::thread::available_parallelism()
@@ -90,13 +88,13 @@ pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
     report.into_inner().unwrap()
 }
 
-enum Outcome {
+pub(crate) enum Outcome {
     Done(PathBuf),
     Skipped,
     Failed(String),
 }
 
-fn process(entry: &Entry, file: &Path) -> Outcome {
+pub(crate) fn process(entry: &Entry, file: &Path) -> Outcome {
     let ext = file
         .extension()
         .map(|e| e.to_string_lossy().into_owned())
@@ -111,14 +109,7 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
         Action::Image { format, options } => convert_image(file, *format, options),
         Action::Ffmpeg(job) => run_ffmpeg(file, job),
         Action::Pdf(job) => crate::pdf::run(file, job),
-        Action::PdfTool { tool, suffix } => {
-            use crate::pdf::tools::{self, Tool};
-            match tool {
-                Tool::Split => tools::split(file, suffix),
-                Tool::Merge => tools::merge(std::slice::from_ref(file), suffix),
-                _ => tools::rotate(file, *tool, suffix),
-            }
-        }
+        Action::PdfTool(job) => job.run(file),
         Action::Plugin(p) => run_plugin(p, file),
     };
     match result {
@@ -126,7 +117,8 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
             // Çıktı kaynağın tarihlerini taşır: Gezgin'de tarihe göre sıralama ve fotoğraf
             // arşivleri bozulmasın. PDF araçları bunu kendi yazdıkları her dosya için yapar;
             // eklentilerin çıktısına dokunulmaz.
-            if !matches!(entry.action, Action::Plugin(_) | Action::PdfTool { .. })
+            if entry.keep_dates
+                && !matches!(entry.action, Action::Plugin(_) | Action::PdfTool(_))
                 && let Err(e) = shock_convert_core::copy_file_times(file, &out)
             {
                 crate::log::line(&format!("tarih kopyalanamadı {}: {e}", out.display()));
@@ -179,8 +171,9 @@ fn run_ffmpeg(file: &Path, job: &FfmpegJob) -> Result<PathBuf, String> {
 }
 
 fn run_plugin(p: &PluginEntry, input: &Path) -> Result<PathBuf, String> {
-    let output = unique_output_path(input, Some(p.output_suffix.as_str()), &p.output_ext)
+    let reserved = reserve_output(input, Some(p.output_suffix.as_str()), &p.output_ext)
         .map_err(|e| e.to_string())?;
+    let output = reserved.path();
     let args: Vec<String> = p
         .command
         .iter()
@@ -202,17 +195,15 @@ fn run_plugin(p: &PluginEntry, input: &Path) -> Result<PathBuf, String> {
         .output()
         .map_err(|e| format!("`{}` başlatılamadı: {e}", args[0]))?;
     if !out.status.success() {
-        let _ = std::fs::remove_file(&output);
         let stderr = String::from_utf8_lossy(&out.stderr);
         let msg = stderr.trim().lines().last().unwrap_or("bilinmeyen hata");
         return Err(format!("eklenti hata verdi ({}): {msg}", out.status));
     }
-    // Çıktı adı rezerve edilirken boş dosya oluşturulur; eklenti içini doldurmuş olmalı.
-    if std::fs::metadata(&output).map_or(true, |m| m.len() == 0) {
-        let _ = std::fs::remove_file(&output);
+    // Geçici çıktı rezerve edilirken boş oluşturulur; eklenti içini doldurmuş olmalı.
+    if std::fs::metadata(output).map_or(true, |m| m.len() == 0) {
         return Err("eklenti çıktı dosyası üretmedi".into());
     }
-    Ok(output)
+    reserved.commit().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

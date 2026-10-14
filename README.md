@@ -61,8 +61,45 @@ PDF dosyalarına sağ tıklayınca:
 - **PDF: Birleştir:** Birden çok PDF ve görüntü seçilir, dosya adına göre doğal sırayla tek bir `<ilk-ad>-birleşik.pdf` çıkar.
 - **PDF: Sayfalara böl:** Her sayfa ayrı bir dosyaya yazılır (`<ad>-sayfa-01.pdf` …).
 - **PDF: 90° sağa / 90° sola / 180° döndür.**
+- **PDF: Küçült:** Gömülü resimler küçültülüp (en uzun kenar 1600 px) JPEG olarak yeniden sıkıştırılır, kullanılmayan nesneler atılır: `<ad>-küçük.pdf`. Kazanç yoksa dosya yazılmaz. Resim kalitesi düşer; metin ve çizimler etkilenmez.
+- **PDF: Görüntülere çevir (PNG / JPG):** Her sayfa 150 dpi görüntü olur (`<ad>-sayfa-01.png` …; tek sayfalıysa `<ad>.png`).
+- **PDF: Metne çevir (TXT):** Seçilebilir metin `<ad>.txt` (UTF-8) dosyasına yazılır. Taranmış (yalnızca resim) PDF'lerde metin tanıma yoktur.
+
+Görüntüye ve metne çevirme, Chromium'un PDF motoru **PDFium** ile yapılır (kurulumla gelen `pdfium.dll`).
+Çözünürlük, kalite ve resim boyutu preset ile değiştirilebilir (`dpi`, `quality`, `max_width`; bkz. `presets.toml` örneği).
 
 Şifreli ve parola korumalı PDF'ler desteklenmez. Birleştirmede yer imleri ve form alanları korunmaz. Ayrıntılar: [docs/PDF-ARACLARI-ANALIZ.md](docs/PDF-ARACLARI-ANALIZ.md).
+
+## Özel dönüştür
+
+Sağ tık ▸ Shock Convert ▸ **Özel dönüştür…** (komut satırında `shock-convert custom <dosyalar>`) seçili
+dosyalar için tek seferlik ayarlarla dönüştürme penceresi açar. Çoklu seçim tek pencerede toplanır.
+
+- **Görüntü:** biçim, kalite, en fazla genişlik/yükseklik, EXIF, saydam alan rengi
+- **Ses / video:** biçim, kalite (yüksek/dengeli/küçük), çözünürlük, ses kalitesi, sesi kaldırma,
+  başlangıç/bitiş ile kırpma, ek ffmpeg seçenekleri
+- **PDF işlemi:** küçült, görüntülere/metne çevir, böl, birleştir, döndür (DPI ve kalite ile)
+- **PDF'e çevir:** görüntü ve belgeler
+
+Pencere ilerlemeyi gösterir, **İptal** süren işi durdurur (yarım dosya kalmaz). Sonuçta çıktılar
+"Klasörde göster" ile açılabilir. Son kullanılan ayarlar hatırlanır; **Preset olarak kaydet…** aynı
+ayarları sağ tık menüsüne kalıcı girdi olarak ekler. Pencere iş sürerken kapatılırsa iş sürer ve
+bitince bildirim gelir.
+
+## Ayarlar
+
+Sağ tık menüsünün en altındaki **Ayarlar…** ya da Başlat menüsündeki **Shock Convert Ayarları**
+(komut satırında `shock-convert settings`) ayarlar penceresini açar:
+
+- **Genel:** çıktının kaynak tarihini taşıması; fotoğraf bilgileri (EXIF): koru / konumu sil / hepsini sil
+- **PDF:** Office belgeleri için motor (otomatik, Microsoft Office, LibreOffice, yerleşik)
+- **Araçlar:** ffmpeg, Edge/Chrome, LibreOffice ve Office'in bulunup bulunmadığı; gerekirse yol
+- **Menü:** hangi yerleşik girdilerin görüneceği
+- **Preset'lerim:** kendi preset'lerinizi ekleme, düzenleme, silme
+
+Kaydedince `presets.toml` güncellenir (dosyadaki yorumlarınız korunur) ve menü yeniden kaydedilir.
+Pencere, Windows'ta zaten bulunan Edge'in uygulama penceresidir; sayfayı Shock Convert yalnızca
+bu bilgisayardan erişilebilen (`127.0.0.1`), rastgele anahtarlı bir adresten sunar ve pencere kapanınca durur.
 
 ## Preset'ler
 
@@ -119,12 +156,13 @@ dönüştürmeyi ve çoklu seçim benzetimini dener, raporu panoya kopyalar.
 | Kalite | JPG kalitesi 90. WebP şimdilik **kayıpsız** yazılır (ileride kayıplı seçenek eklenebilir) |
 | EXIF yönü | Uygulanır (telefon fotoğrafları doğru döner) |
 | Meta veri | JPG/PNG/WebP'de EXIF (kamera, tarih, konum) ve ICC renk profili korunur |
-| Dosya tarihi | Çıktı, kaynağın oluşturma/değiştirme tarihini taşır |
+| Dosya tarihi | Çıktı, kaynağın oluşturma/değiştirme tarihini taşır (birleştirme hariç: o yeni bir belgedir). Ayarlardan kapatılabilir |
 | ICO | 16–256 px çoklu boyut; kaynaktan büyük boyutlar eklenmez, oran korunur |
 | Animasyonlu GIF/WebP | Yalnızca ilk kare |
 | Ses/video | ffmpeg ile; en fazla 2 dosya paralel (ffmpeg zaten çok çekirdek kullanır). Başlarken "dönüştürülüyor…" bildirimi çıkar. İlerleme çubuğu yok |
 | Hız | Görüntülerde kazanç süreç içi dönüştürme ve hızlı başlangıçtan gelir. Ses/video süresini ffmpeg belirler, bu araç onu hızlandırmaz |
 | Bozuk dosya | Hata bildirimi gösterilir, yarım çıktı bırakılmaz |
+| Yarım dosya | Çıktı önce geçici adla (`foto.part.jpg`) yazılır, bitince `foto.jpg` olur. Bilgisayar kapansa ya da işlem zorla sonlandırılsa bile asıl adda yarım/boş dosya kalmaz; geride kalan `.part` dosyası silinebilir (bir saat sonra ad yeniden kullanılır) |
 
 ## Eklentiler (upscale vb. için)
 
@@ -143,16 +181,18 @@ output_ext = "png"
 command = ["python", "{plugin_dir}/upscale.py", "{input}", "{output}"]
 ```
 
-`{input}`, `{output}` ve `{plugin_dir}` yer tutucuları doldurulur. Komut herhangi bir program olabilir
+`{input}`, `{output}` ve `{plugin_dir}` yer tutucuları doldurulur. `{output}` geçici bir addır (`foto.part.png`); eklenti başarıyla bitince asıl ada taşınır. Komut herhangi bir program olabilir
 (Python betiği, `.exe`, vb.); sıfır dışı çıkış kodu hata sayılır ve son stderr satırı bildirimde gösterilir.
 Eklenti kaldırılırken klasörü silip `register` çalıştırmak yeterlidir. Örnek: [`examples/plugins/grayscale`](examples/plugins/grayscale).
 
 ## Geliştirme
 
 ```
+scripts/fetch-pdfium.sh                                 # PDFium'u indirir (PDF→görüntü/metin testleri için)
+export SHOCK_CONVERT_PDFIUM=$PWD/third_party/pdfium/linux-x64/lib
 cargo test --workspace                                  # çekirdek + menü + eklenti testleri (Linux/Windows)
 cargo check --workspace --target x86_64-pc-windows-gnu  # Windows kodunu Linux'tan derleme kontrolü
-.\build.ps1                                             # Windows: exe + kurulum sihirbazı
+.\build.ps1                                             # Windows: exe + pdfium.dll + kurulum sihirbazı
 ```
 
 ```
@@ -162,12 +202,13 @@ crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, taray�
 site             tanıtım sitesi (React + Vite; bkz. docs/SITE.md)
 assets           geçici uygulama ikonu (make_icon.py ile üretilir; icon.ico exe'ye gömülür)
 installer        Inno Setup betiği
+third_party      PDFium sürüm ve SHA-256 sabitlemesi (indirilen dosyalar repoya girmez)
 ```
 
 Kayıt defteri anahtarları (hepsi `HKCU`): `Software\Classes\SystemFileAssociations\.<uzantı>\shell\ShockConvert`
 ve `Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert`. `unregister` yalnızca bunları siler, boş kalan üst anahtarları da temizler.
 
-Windows'ta elle doğrulama listesi: [docs/WINDOWS-TEST.md](docs/WINDOWS-TEST.md).
+Windows'ta elle doğrulama listesi: [#25](https://github.com/suleyman-kara/shock-convert/issues/25) (yeni özellikler oraya eklenir).
 
 ## Sürümler
 
@@ -184,6 +225,7 @@ Sürümler GitHub Actions ile otomatik çıkar, elle etiket atmak gerekmez:
 ## Lisans ve kod imzalama
 
 [LICENSE](LICENSE) dosyasına bakın (Apache-2.0).
+Kurulumla gelen PDFium (BSD-3-Clause / Apache-2.0) ve içerdiği kitaplıkların lisansları kurulum klasöründeki `licenses\pdfium` altındadır.
 
 Kod imzalama politikası: [CODE_SIGNING.md](CODE_SIGNING.md) · Code signing policy: [CODE_SIGNING.md](CODE_SIGNING.md).
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/) (başvuru aşamasında).
