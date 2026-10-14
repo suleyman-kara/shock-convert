@@ -32,6 +32,12 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 - [ ] `winget install TheDocumentFoundation.LibreOffice` sonrası aynı `.docx` ▸ PDF: LibreOffice çıktısı (düzen Word'e daha yakın); `.doc`/`.odt` de çalışıyor.
 - [ ] Edge açıkken de PDF dönüştürme çalışıyor (ayrı profil kullanılır).
 
+## PDF işlemleri
+- [ ] 3–4 PDF ve bir görüntü seçip ▸ PDF: Birleştir: tek bildirim, tek `<ilk-ad>-birleşik.pdf`, sayfa sırası dosya adlarının doğal sırası.
+- [ ] Çok sayfalı PDF ▸ PDF: Sayfalara böl: her sayfa ayrı dosya, Edge'de doğru açılıyor.
+- [ ] PDF ▸ 90° sağa döndür: sayfalar dönmüş, orijinal dosya değişmemiş.
+- [ ] Parola korumalı bir PDF'te anlaşılır hata bildirimi çıkıyor ve yarım dosya kalmıyor.
+
 ## Ses / video / preset
 - [ ] ffmpeg kurulu değilken bir `.mp4` ▸ MP3: bildirimde `winget install Gyan.FFmpeg` yönlendirmesi çıkıyor.
 - [ ] `winget install Gyan.FFmpeg` sonrası (yeni terminal/oturum) `.mp4` ▸ MP3 ve `.mp4` ▸ WebM çalışıyor; başta "dönüştürülüyor…" bildirimi, sonda tamamlandı bildirimi var.

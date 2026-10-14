@@ -17,6 +17,7 @@ mod ooxml;
 mod pptx;
 mod process;
 mod text;
+pub mod tools;
 mod xlsx;
 mod xml;
 

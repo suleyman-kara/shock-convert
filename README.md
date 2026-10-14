@@ -50,6 +50,15 @@ Belgelerdeki **dış bağlantılı** resimler (internetten ya da diskteki başka
 Motor `presets.toml` içinde seçilebilir: `pdf_engine = "auto"` (varsayılan), `"builtin"` veya `"libreoffice"`.
 Ham HTML dosyalarında sayfa boyutunu HTML'in kendisi belirler.
 
+## PDF işlemleri
+
+PDF dosyalarına sağ tıklayınca:
+- **PDF: Birleştir:** Birden çok PDF ve görüntü seçilir, dosya adına göre doğal sırayla tek bir `<ilk-ad>-birleşik.pdf` çıkar.
+- **PDF: Sayfalara böl:** Her sayfa ayrı bir dosyaya yazılır (`<ad>-sayfa-01.pdf` …).
+- **PDF: 90° sağa / 90° sola / 180° döndür.**
+
+Şifreli ve parola korumalı PDF'ler desteklenmez. Birleştirmede yer imleri ve form alanları korunmaz. Ayrıntılar: [docs/PDF-ARACLARI-ANALIZ.md](docs/PDF-ARACLARI-ANALIZ.md).
+
 ## Preset'ler
 
 `shock-convert presets` dosya yolunu yazar ve yoksa açıklamalı bir örnek oluşturur (`%APPDATA%\ShockConvert\presets.toml`).

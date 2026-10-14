@@ -50,6 +50,14 @@ impl Report {
 
 /// Dosyaları paralel işler. Sonuç sırası girdi sırasından bağımsızdır.
 pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
+    // Birleştirme dosyaları tek tek değil, hep birlikte işler.
+    if let Action::PdfTool {
+        tool: crate::pdf::tools::Tool::Merge,
+        suffix,
+    } = &entry.action
+    {
+        return merge_all(entry, files, suffix);
+    }
     let report = Mutex::new(Report::default());
     let next = AtomicUsize::new(0);
     // ffmpeg kendi içinde çok çekirdek kullanır; üst üste fazla süreç başlatma.
@@ -103,12 +111,43 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
         Action::Image { format, options } => convert_image(file, *format, options),
         Action::Ffmpeg(job) => run_ffmpeg(file, job),
         Action::Pdf(job) => crate::pdf::run(file, job),
+        Action::PdfTool { tool, suffix } => {
+            use crate::pdf::tools::{self, Tool};
+            match tool {
+                Tool::Split => tools::split(file, suffix),
+                Tool::Merge => tools::merge(std::slice::from_ref(file), suffix),
+                _ => tools::rotate(file, *tool, suffix),
+            }
+        }
         Action::Plugin(p) => run_plugin(p, file),
     };
     match result {
         Ok(out) => Outcome::Done(out),
         Err(e) => Outcome::Failed(e),
     }
+}
+
+fn merge_all(entry: &Entry, files: &[PathBuf], suffix: &str) -> Report {
+    let mut report = Report::default();
+    let mut accepted = Vec::new();
+    for f in files {
+        let ext = f
+            .extension()
+            .map(|e| e.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if entry.accepts(&ext) {
+            accepted.push(absolute_input(f));
+        } else {
+            report.skipped += 1;
+        }
+    }
+    match crate::pdf::tools::merge(&accepted, suffix) {
+        Ok(out) => report.done.push(out),
+        Err(e) => report
+            .failed
+            .push((accepted.first().cloned().unwrap_or_default(), e)),
+    }
+    report
 }
 
 fn absolute_input(file: &Path) -> PathBuf {
