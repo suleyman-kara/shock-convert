@@ -96,6 +96,9 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
     if !entry.accepts(&ext) {
         return Outcome::Skipped;
     }
+    // Harici araçlara (ffmpeg, LibreOffice, tarayıcı, eklentiler) her zaman mutlak yol verilir:
+    // komut satırından göreli "-y.mp4" gibi bir ad, çıktısı "-y.mp3" olunca seçenek sanılıyordu.
+    let file = &absolute_input(file);
     let result = match &entry.action {
         Action::Image { format, options } => convert_image(file, *format, options),
         Action::Ffmpeg(job) => run_ffmpeg(file, job),
@@ -106,6 +109,10 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
         Ok(out) => Outcome::Done(out),
         Err(e) => Outcome::Failed(e),
     }
+}
+
+fn absolute_input(file: &Path) -> PathBuf {
+    std::path::absolute(file).unwrap_or_else(|_| file.to_path_buf())
 }
 
 fn convert_image(file: &Path, target: Format, options: &Options) -> Result<PathBuf, String> {
@@ -157,4 +164,17 @@ fn run_plugin(p: &PluginEntry, input: &Path) -> Result<PathBuf, String> {
         return Err("eklenti çıktı dosyası üretmedi".into());
     }
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relative_inputs_become_absolute_so_tools_never_see_a_leading_dash() {
+        let abs = absolute_input(Path::new("-y.mp4"));
+        assert!(abs.is_absolute(), "{abs:?}");
+        assert_eq!(abs.file_name().unwrap(), "-y.mp4");
+        assert!(!abs.to_string_lossy().starts_with('-'));
+    }
 }

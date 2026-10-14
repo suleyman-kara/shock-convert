@@ -215,7 +215,18 @@ pub fn defaults() -> Vec<Preset> {
             "mp3",
             "MP3",
             &["media"],
-            &["-vn", "-c:a", "libmp3lame", "-q:a", "2"],
+            &[
+                "-vn",
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                // Windows Gezgini ID3v2.4 etiketlerini eksik gösterir; v2.3 + v1 en uyumlusu.
+                "-id3v2_version",
+                "3",
+                "-write_id3v1",
+                "1",
+            ],
         ),
         ffmpeg_preset("wav", "WAV", &["media"], &["-vn", "-c:a", "pcm_s16le"]),
         ffmpeg_preset("flac", "FLAC", &["media"], &["-vn", "-c:a", "flac"]),
@@ -267,7 +278,11 @@ pub fn defaults() -> Vec<Preset> {
             "gif",
             "GIF (animasyon)",
             &["video"],
-            &["-vf", "fps=12,scale=480:-1:flags=lanczos", "-an"],
+            &[
+                "-vf", // Tek geçişte palet üretip kullanır: 256 renge düşerken bantlaşma ve renk kayması azalır.
+                "fps=12,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse",
+                "-an",
+            ],
         ),
     ]);
     // `gif` kimliği görüntü GIF'iyle çakışmasın.
