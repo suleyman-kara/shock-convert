@@ -27,8 +27,9 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 - [ ] `.png` ve `.jpg` ▸ PDF: anında `ad.pdf` oluştu, görüntü tam sayfa.
 - [ ] `.txt` (Türkçe karakterli; ayrıca Not Defteri'nde ANSI kaydedilmiş bir dosya) ▸ PDF: karakterler doğru.
 - [ ] `.md` ve `.html` ▸ PDF çalışıyor ("dönüştürülüyor…" bildirimi, sonra tamamlandı).
-- [ ] LibreOffice **kurulu değilken** gerçek bir `.docx` (başlık, liste, tablo, resim içeren), `.xlsx`, `.pptx` ▸ PDF: içerik okunaklı.
-- [ ] LibreOffice kurulu değilken `.doc` / `.odt` ▸ PDF: bildirimde `winget install TheDocumentFoundation.LibreOffice` yönlendirmesi.
+- [ ] Office ile PDF (Office kurulu bir bilgisayarda): ayrıntılı test listesi #17'de.
+- [ ] Office ve LibreOffice **kurulu değilken** gerçek bir `.docx` (başlık, liste, tablo, resim içeren), `.xlsx`, `.pptx` ▸ PDF: içerik okunaklı.
+- [ ] Office ve LibreOffice kurulu değilken `.doc` / `.odt` ▸ PDF: bildirimde `winget install TheDocumentFoundation.LibreOffice` yönlendirmesi.
 - [ ] `winget install TheDocumentFoundation.LibreOffice` sonrası aynı `.docx` ▸ PDF: LibreOffice çıktısı (düzen Word'e daha yakın); `.doc`/`.odt` de çalışıyor.
 - [ ] Edge açıkken de PDF dönüştürme çalışıyor (ayrı profil kullanılır).
 

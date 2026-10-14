@@ -389,7 +389,7 @@ pub fn load() -> (Settings, Vec<String>) {
                     match crate::pdf::Engine::parse(e) {
                         Some(engine) => pdf_engine = engine,
                         None => warnings.push(format!(
-                            "{}: pdf_engine \"{e}\" geçersiz (auto | builtin | libreoffice)",
+                            "{}: pdf_engine \"{e}\" geçersiz (auto | office | libreoffice | builtin)",
                             path.display()
                         )),
                     }
@@ -430,10 +430,12 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 # Başka bir yerdeyse yolunu verin:
 # ffmpeg_path = "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe"
 
-# PDF: Office belgeleri (DOCX/XLSX/PPTX) için motor.
-#   auto        = LibreOffice kuruluysa onu, değilse yerleşik dönüştürücüyü kullan (varsayılan)
-#   builtin     = her zaman yerleşik dönüştürücü (hızlı, orta doğruluk)
+# PDF: Office belgeleri (DOCX/XLSX/PPTX, DOC/XLS/PPT, RTF, ODT/ODS/ODP) için motor.
+#   auto        = sırayla Microsoft Office, LibreOffice, yerleşik dönüştürücü; olmayan ya da
+#                 başarısız olan atlanır (varsayılan)
+#   office      = yalnızca Microsoft Office (Word/Excel/PowerPoint'in kendi PDF çıktısı)
 #   libreoffice = yalnızca LibreOffice
+#   builtin     = her zaman yerleşik dönüştürücü (hızlı, orta doğruluk)
 # pdf_engine = "auto"
 # Edge/Chrome ve LibreOffice otomatik bulunur; gerekirse yollarını verin:
 # browser_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"

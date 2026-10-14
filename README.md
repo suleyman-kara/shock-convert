@@ -37,17 +37,22 @@ En kolay kurulum: `winget install Gyan.FFmpeg`. Bulunamazsa bildirimde bu komut 
 |---|---|---|
 | PNG, JPG, WebP, BMP, GIF, TIFF, ICO | Kendi PDF yazıcımız. JPG'ler yeniden sıkıştırılmadan gömülür | Hiçbir şey |
 | TXT, MD, HTML | Tarayıcı motoruyla "PDF olarak yazdır" | Edge (Windows 10/11'de zaten var) veya Chrome |
-| DOCX, XLSX, PPTX | Yerleşik dönüştürücü belgeyi HTML'e çevirir, tarayıcı PDF'e basar. **LibreOffice kuruluysa otomatik olarak o kullanılır** | Hiçbir şey (LibreOffice isteğe bağlı) |
-| DOC, XLS, PPT, RTF, ODT, ODS, ODP | LibreOffice | `winget install TheDocumentFoundation.LibreOffice` |
+| DOCX, XLSX, PPTX | **Microsoft Office kuruluysa** Word/Excel/PowerPoint'in kendi PDF çıktısı; yoksa LibreOffice; o da yoksa yerleşik dönüştürücü (HTML'e çevirip tarayıcıyla basar) | Hiçbir şey (Office/LibreOffice isteğe bağlı) |
+| DOC, XLS, PPT, RTF, ODT, ODS, ODP | Microsoft Office, yoksa LibreOffice | Office ya da `winget install TheDocumentFoundation.LibreOffice` |
 
 **Yerleşik dönüştürücünün kapsamı.** Word: başlıklar, kalın/italik/altı çizili, renk ve yazı boyutu,
 hizalama, madde ve numaralı listeler, tablolar, köprüler, gömülü resimler, sayfa sonları. Excel: görünür
 sayfalar tablo olarak, tarih hücreleri tarihe çevrilir. PowerPoint: her slayt bir sayfa; başlık, maddeler, tablolar, resimler.
 Desteklenmeyenler: üst/alt bilgi, dipnot, metin kutuları, şekiller, grafikler, Excel sayı biçimleri (para birimi vb.),
-slayt yerleşimi ve arka planları, birebir sayfa düzeni. Bu tür belgelerde LibreOffice kurmanız önerilir.
+slayt yerleşimi ve arka planları, birebir sayfa düzeni. Bu tür belgelerde Office ya da LibreOffice önerilir.
+
+**Office ile dönüştürme.** Belge salt okunur ve görünmez açılır, makrolar zorla kapatılır, hiçbir şey
+kaydedilmez. Parola korumalı belgeler parola sorulmadan hata verir. Açık olan Office pencerelerinize
+dokunulmaz; Office işleri sırayla yapılır. Office başarısız olursa (ör. etkinleştirilmemiş) sıradaki
+motora geçilir ve nedeni günlüğe yazılır.
 Belgelerdeki **dış bağlantılı** resimler (internetten ya da diskteki başka bir dosyadan) güvenlik için yüklenmez.
 
-Motor `presets.toml` içinde seçilebilir: `pdf_engine = "auto"` (varsayılan), `"builtin"` veya `"libreoffice"`.
+Motor `presets.toml` içinde seçilebilir: `pdf_engine = "auto"` (varsayılan: Office → LibreOffice → yerleşik), `"office"`, `"libreoffice"` veya `"builtin"`.
 Ham HTML dosyalarında sayfa boyutunu HTML'in kendisi belirler.
 
 ## PDF işlemleri
@@ -153,7 +158,7 @@ cargo check --workspace --target x86_64-pc-windows-gnu  # Windows kodunu Linux't
 ```
 crates/core      görüntü dönüştürme ve görüntü→PDF yazıcı (format, seçenekler, çıktı adlandırma)
 crates/cli       shock-convert.exe: komutlar, preset'ler, ffmpeg, menü modeli, eklentiler, kayıt defteri, bildirim
-crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, tarayıcı ve LibreOffice çalıştırıcıları
+crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, tarayıcı, Microsoft Office ve LibreOffice çalıştırıcıları
 site             tanıtım sitesi (React + Vite; bkz. docs/SITE.md)
 assets           geçici uygulama ikonu (make_icon.py ile üretilir; icon.ico exe'ye gömülür)
 installer        Inno Setup betiği

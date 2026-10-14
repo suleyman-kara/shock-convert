@@ -51,6 +51,21 @@ jobs:
             throw "Yayinci adi yanlis: CompanyName='$($info.CompanyName)'"
           }
           Write-Host "Gomulu kaynak tamam: $($info.ProductName) $($info.FileVersion)"
+      - name: Office PDF betiği (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $path = "crates/cli/src/pdf/msoffice.ps1"
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$null, [ref]$errors)
+          if ($errors) { $errors | Out-String | Write-Host; throw "msoffice.ps1 sozdizimi hatali" }
+          # Office yokken (CI) hata yolu: betik hata dosyasini yazip 1 ile cikmali, asili kalmamali.
+          $env:SC_IN = "C:\yok.docx"; $env:SC_OUT = "$env:RUNNER_TEMP\out.pdf"; $env:SC_APP = "Word"
+          $env:SC_PROGID = "ShockConvert.YokBoyleBirUygulama"; $env:SC_PROC = "YOKBOYLE"
+          $env:SC_ERR = "$env:RUNNER_TEMP\err.txt"; $env:SC_PIDS = "$env:RUNNER_TEMP\pids.txt"
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $path
+          if ($LASTEXITCODE -ne 1) { throw "beklenen cikis kodu 1, gelen $LASTEXITCODE" }
+          if (-not (Test-Path $env:SC_ERR)) { throw "hata dosyasi yazilmadi" }
+          Write-Host "Hata yolu tamam: $(Get-Content $env:SC_ERR)"
       - name: Kurulum sihirbazı (Inno Setup)
         run: |
           choco install innosetup -y --no-progress

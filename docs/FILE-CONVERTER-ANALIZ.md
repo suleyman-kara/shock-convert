@@ -35,7 +35,7 @@ File Converter **GPL-3.0** lisanslıdır, Shock Convert ise **Apache-2.0**. Bu y
 | 14 | Dönüşüm sonrası girdiyi silme / arşiv klasörüne taşıma | Preset seçeneği | Yok | 📋 Sonraya: preset seçeneği olarak (veri kaybı riski nedeniyle varsayılan kapalı) |
 | 15 | Çıktı adı/klasör şablonu | Şablon ile farklı klasör ve ad üretilebilir | Yalnızca `suffix` | 📋 Sonraya: istenirse preset'e `output_dir` |
 | 16 | PDF → görüntü | Her sayfa ayrı görüntü, sabit DPI ile | Yok | 📋 #9 (PDF işlemleri) kapsamında |
-| 17 | Office ile PDF | Belge salt okunur açılıp Office'in kendi PDF dışa aktarımı kullanılır | Yerleşik dönüştürücü / LibreOffice | 📋 #6. Dikkat edilecek tuzaklar aşağıda |
+| 17 | Office ile PDF | Belge salt okunur açılıp Office'in kendi PDF dışa aktarımı kullanılır | Office → LibreOffice → yerleşik sırası; Office belgeyi salt okunur, makrosuz, görünmez açar | ✅ **Eklendi** (#6). Tuzaklar aşağıda; Windows'ta Office ile test bekliyor (#17) |
 | 18 | Büyük görüntüler | ImageMagick kaynak sınırlarına bağlı | `image` crate'inin varsayılan bellek sınırı aşılırsa anlaşılır hata | ✅ Var |
 | 19 | Bozuk ayar dosyası | (Ayarlar uygulama içinden yönetilir) | Bozuk `presets.toml` uyarıyla atlanır, yerleşik preset'ler çalışmaya devam eder | ✅ Var |
 | 20 | Kaldırıcının artık bırakması | Bilinen upstream sorunu | Kaldırma menüyü, kayıt defterini, klasörü ve günlüğü siler (kullanıcı preset'i korunur) | ✅ Var |

@@ -46,7 +46,7 @@ const tr = {
     req: [
       "Windows 10 veya 11 (64 bit)",
       "Ses/video için ffmpeg — isteğe bağlı: winget install Gyan.FFmpeg",
-      "DOC, XLS, PPT, ODT gibi eski belgeler için LibreOffice — isteğe bağlı",
+      "DOC, XLS, PPT, ODT gibi eski belgeler için Microsoft Office ya da LibreOffice — isteğe bağlı",
     ],
     smartTitle: "\"Windows bilgisayarınızı korudu\" uyarısı",
     smart: "Kod imzalama başvurumuz sürerken Windows SmartScreen bu uyarıyı gösterebilir. \"Ek bilgi\" ▸ \"Yine de çalıştır\" ile devam edebilirsiniz. Dosyanın özetini yukarıdaki SHA-256 değeriyle karşılaştırabilirsiniz.",
@@ -64,7 +64,7 @@ const tr = {
     items: [
       { q: "Ücretli mi?", a: "Hayır. Shock Convert ücretsiz ve açık kaynaktır." },
       { q: "Kaldırınca geride bir şey kalır mı?", a: "Hayır. Kaldırma; menüyü, kayıt defteri girdilerini, program klasörünü ve günlük dosyasını siler. Yalnızca kendi düzenlediğiniz presets.toml dosyası korunur." },
-      { q: "Belgeleri PDF'e çevirmek için Office gerekiyor mu?", a: "Hayır. Word, Excel ve PowerPoint dosyaları yerleşik dönüştürücüyle PDF'e çevrilir. LibreOffice kuruluysa daha yüksek doğruluk için otomatik olarak o kullanılır." },
+      { q: "Belgeleri PDF'e çevirmek için Office gerekiyor mu?", a: "Hayır. Office yoksa Word, Excel ve PowerPoint dosyaları yerleşik dönüştürücüyle PDF'e çevrilir. Microsoft Office ya da LibreOffice kuruluysa daha yüksek doğruluk için otomatik olarak o kullanılır." },
       { q: "Ses ve video dönüştürme çalışmıyor.", a: "Ses ve video için ffmpeg gerekir. winget install Gyan.FFmpeg komutuyla kurup yeniden deneyin." },
       { q: "Bir sorun buldum, nereye bildireyim?", a: "GitHub'daki Issues sayfasına. %LOCALAPPDATA%\\ShockConvert\\log.txt dosyasını eklerseniz çok yardımcı olur." },
     ],
@@ -118,7 +118,7 @@ const en: Dict = {
     req: [
       "Windows 10 or 11 (64-bit)",
       "ffmpeg for audio/video — optional: winget install Gyan.FFmpeg",
-      "LibreOffice for legacy documents like DOC, XLS, PPT, ODT — optional",
+      "Microsoft Office or LibreOffice for legacy documents like DOC, XLS, PPT, ODT — optional",
     ],
     smartTitle: "\"Windows protected your PC\" warning",
     smart: "While our code signing application is in progress, Windows SmartScreen may show this warning. Choose \"More info\" ▸ \"Run anyway\" to continue. You can compare the file against the SHA-256 checksum above.",
@@ -136,7 +136,7 @@ const en: Dict = {
     items: [
       { q: "Is it paid?", a: "No. Shock Convert is free and open source." },
       { q: "Does uninstalling leave anything behind?", a: "No. Uninstalling removes the menu, registry entries, program folder and log file. Only your own edited presets.toml is kept." },
-      { q: "Do I need Office to convert documents to PDF?", a: "No. Word, Excel and PowerPoint files are converted by the built-in converter. If LibreOffice is installed it is used automatically for higher fidelity." },
+      { q: "Do I need Office to convert documents to PDF?", a: "No. Without Office, Word, Excel and PowerPoint files are converted by the built-in converter. If Microsoft Office or LibreOffice is installed it is used automatically for higher fidelity." },
       { q: "Audio and video conversion doesn't work.", a: "Audio and video need ffmpeg. Install it with winget install Gyan.FFmpeg and try again." },
       { q: "I found a problem — where do I report it?", a: "On the Issues page on GitHub. Attaching %LOCALAPPDATA%\\ShockConvert\\log.txt helps a lot." },
     ],
