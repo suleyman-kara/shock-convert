@@ -9,7 +9,8 @@
 AppId={{6F1B7C52-3D0A-4E8B-9A57-5C0D2E94B1A3}
 AppName=Shock Convert
 AppVersion={#AppVersion}
-AppPublisher=Shock Convert
+AppPublisher=Suleyman Kara
+AppPublisherURL=https://github.com/suleyman-kara/shock-convert
 ; Yönetici hakkı gerekmez: her şey kullanıcı profiline (HKCU / LocalAppData) kurulur.
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\ShockConvert

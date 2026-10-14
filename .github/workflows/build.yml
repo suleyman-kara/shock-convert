@@ -47,6 +47,9 @@ jobs:
           if ($info.ProductName -ne "Shock Convert") {
             throw "Kaynak (ikon/surum) exe'ye gomulmemis: ProductName='$($info.ProductName)'"
           }
+          if ($info.CompanyName -ne "Suleyman Kara") {
+            throw "Yayinci adi yanlis: CompanyName='$($info.CompanyName)'"
+          }
           Write-Host "Gomulu kaynak tamam: $($info.ProductName) $($info.FileVersion)"
       - name: Kurulum sihirbazı (Inno Setup)
         run: |

@@ -11,6 +11,8 @@ fn main() {
     let mut res = winresource::WindowsResource::new();
     res.set_icon("../../assets/icon.ico")
         .set("ProductName", "Shock Convert")
+        .set("CompanyName", "Suleyman Kara")
+        .set("LegalCopyright", "Copyright (c) Suleyman Kara. Apache-2.0")
         .set("FileDescription", "Shock Convert - right-click converter")
         .set("InternalName", "shock-convert")
         .set("OriginalFilename", "shock-convert.exe");
