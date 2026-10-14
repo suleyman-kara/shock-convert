@@ -4,8 +4,8 @@
 # Microsoft Store (EXE yolu) ise yönlendirme yapmayan, sürüme özel ve değişmeyen bir bağlantı ister:
 #   https://<sahip>.github.io/<repo>/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe
 #
-# Tetikleme: v* etiketiyle çalışan "build" iş akışı başarıyla bitince (release dosyaları yüklenmiş olur),
-# ya da elle (eski bir sürümü yayınlamak için) "Run workflow" ile etiket girilerek.
+# Tetikleme: "build" iş akışı bir sürüm yayınlayınca onu çağırır (workflow_call), ya da elle
+# (eski bir sürümü yayınlamak için) "Run workflow" ile etiket girilerek.
 # Bir sürümün dosyası bir kez yayınlandıktan sonra değiştirilmez (Store bağlantısı sabit kalmalı).
 #
 # Bir kerelik ayar: Settings → Pages → Source: "Deploy from a branch", Branch: gh-pages / (root).
@@ -14,9 +14,11 @@
 name: publish-download
 
 on:
-  workflow_run:
-    workflows: [build]
-    types: [completed]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       tag:
@@ -26,22 +28,16 @@ on:
 permissions:
   contents: write
 
-# site iş akışıyla aynı dala (gh-pages) yazdığı için aynı kuyrukta sırayla çalışır.
-concurrency:
-  group: gh-pages
-  cancel-in-progress: false
-
 jobs:
   publish:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
+    # site iş akışıyla aynı dala (gh-pages) yazdığı için aynı kuyrukta sırayla çalışır.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+      TAG: ${{ inputs.tag }}
     steps:
       - name: Etiketi doğrula
         run: |

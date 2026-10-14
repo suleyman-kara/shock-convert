@@ -1,0 +1,25 @@
+# PR kapanınca (birleşse de kapatılsa da) o PR'ın "pr-N" ön sürümünü ve etiketini siler.
+name: pr-cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: pr-${{ github.event.pull_request.number }}
+    steps:
+      - run: |
+          if gh release delete "$TAG" --cleanup-tag --yes; then
+            echo "$TAG silindi"
+          else
+            echo "$TAG yok; yapılacak bir şey yok"
+          fi

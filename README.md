@@ -31,7 +31,7 @@ rapor.docx   ──sağ tık──▶  Shock Convert ▸ PDF  ──▶  rapor.p
 ffmpeg paketlenmez. Şu sırayla aranır: `presets.toml` içindeki `ffmpeg_path`, kurulum klasöründeki `ffmpeg\ffmpeg.exe`, `PATH`.
 En kolay kurulum: `winget install Gyan.FFmpeg`. Bulunamazsa bildirimde bu komut gösterilir. Görüntü dönüştürme ffmpeg gerektirmez.
 
-## PDF (Office olmadan)
+## PDF (Office olsa da olmasa da)
 
 | Girdi | Nasıl dönüştürülür | Gereken |
 |---|---|---|
@@ -168,6 +168,18 @@ Kayıt defteri anahtarları (hepsi `HKCU`): `Software\Classes\SystemFileAssociat
 ve `Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert`. `unregister` yalnızca bunları siler, boş kalan üst anahtarları da temizler.
 
 Windows'ta elle doğrulama listesi: [docs/WINDOWS-TEST.md](docs/WINDOWS-TEST.md).
+
+## Sürümler
+
+Sürümler GitHub Actions ile otomatik çıkar, elle etiket atmak gerekmez:
+
+- **PR açılınca** (bu repodan): `pr-<numara>` adlı bir **ön sürüm** (pre-release) oluşur; PR'ın kurulum
+  dosyasını test etmek için. Her push'ta yenilenir, PR'a bağlantısı yorum olarak yazılır, PR kapanınca silinir.
+- **main'e birleşince:** son sürümden bir yama sürümü çıkar (`v0.1.0` → `v0.1.1`), sürüm notları PR'lardan
+  otomatik yazılır, kurulum dosyası GitHub Pages'teki sabit indirme adresine de konur.
+  - PR'a `release:minor` ya da `release:major` etiketi eklenirse o basamak artar (`v0.2.0`, `v1.0.0`).
+  - `release:skip` etiketi ya da yalnızca belge/site/iş akışı değişikliği sürüm çıkarmaz.
+  - `crates/cli/Cargo.toml` içindeki sürüm elle daha yükseğe çekilirse o kullanılır.
 
 ## Lisans ve kod imzalama
 
