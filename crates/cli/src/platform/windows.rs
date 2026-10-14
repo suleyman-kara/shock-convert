@@ -177,7 +177,7 @@ pub fn install() -> Result<(), String> {
     let set = |name: &str, v: &str| k.set_value(name, &v).map_err(|e| e.to_string());
     set("DisplayName", MENU_TITLE)?;
     set("DisplayVersion", env!("CARGO_PKG_VERSION"))?;
-    set("Publisher", "Shock Convert")?;
+    set("Publisher", "Suleyman Kara")?;
     set("DisplayIcon", &format!("{exe},0"))?;
     set("InstallLocation", &dir.display().to_string())?;
     set("UninstallString", &format!("\"{exe}\" uninstall"))?;

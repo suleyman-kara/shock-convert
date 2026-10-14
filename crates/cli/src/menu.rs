@@ -17,9 +17,16 @@ pub struct FfmpegJob {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    Image { format: Format, options: Options },
+    Image {
+        format: Format,
+        options: Options,
+    },
     Ffmpeg(FfmpegJob),
     Pdf(crate::pdf::PdfJob),
+    PdfTool {
+        tool: crate::pdf::tools::Tool,
+        suffix: String,
+    },
     Plugin(PluginEntry),
 }
 
@@ -49,7 +56,7 @@ fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
     // Dosyayı kendi formatına çevirme girdisi gösterilmez. Ama küçültme yapan ya da kendi
     // `suffix`'ini tanımlayan preset bir "varyant"tır (örn. 720p MP4) ve kendi formatında da anlamlıdır.
     let resizes = p.max_width.is_some() || p.max_height.is_some();
-    let is_variant = resizes || p.suffix.is_some();
+    let is_variant = resizes || p.suffix.is_some() || p.kind == Kind::PdfTool;
     if !is_variant {
         input_exts.retain(|e| !own_exts.contains(&e.as_str()));
     }
@@ -71,6 +78,10 @@ fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
                 },
             }
         }
+        Kind::PdfTool => Action::PdfTool {
+            tool: p.tool?,
+            suffix: p.suffix.clone().unwrap_or_else(|| "işlenmiş".into()),
+        },
         Kind::Pdf => Action::Pdf(crate::pdf::PdfJob {
             browser_path: s.browser_path.clone(),
             libreoffice_path: s.libreoffice_path.clone(),

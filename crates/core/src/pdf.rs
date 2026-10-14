@@ -19,15 +19,20 @@ const MAX_PAGE_PT: f64 = 14_400.0;
 /// `input` görüntüsünü yanına aynı adla `.pdf` olarak yazar; yolunu döndürür.
 /// Hata olursa yarım çıktı silinir.
 pub fn image_to_pdf(input: &Path) -> Result<PathBuf, ConvertError> {
-    let page = embed(input)?;
+    let bytes = image_to_pdf_bytes(input)?;
     let out = unique_output_path(input, None, "pdf")?;
-    match std::fs::write(&out, build_pdf(&page)) {
+    match std::fs::write(&out, bytes) {
         Ok(()) => Ok(out),
         Err(e) => {
             let _ = std::fs::remove_file(&out);
             Err(e.into())
         }
     }
+}
+
+/// Görüntüyü tek sayfalık PDF baytlarına çevirir (dosyaya yazmadan; ör. PDF birleştirme için).
+pub fn image_to_pdf_bytes(input: &Path) -> Result<Vec<u8>, ConvertError> {
+    Ok(build_pdf(&embed(input)?))
 }
 
 struct Page {

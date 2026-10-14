@@ -17,6 +17,9 @@ pub enum Kind {
     Ffmpeg,
     /// PDF'e (görüntü, metin, Office belgeleri; bkz. `pdf` modülü).
     Pdf,
+    /// PDF işlemi: birleştir, böl, döndür (`tool` alanı; bkz. `pdf::tools`).
+    #[serde(rename = "pdf-tool")]
+    PdfTool,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +39,8 @@ pub struct Preset {
     pub background: Option<[u8; 3]>,
     // ffmpeg
     pub args: Vec<String>,
+    // pdf-tool: merge | split | rotate-right | rotate-left | rotate-180
+    pub tool: Option<crate::pdf::tools::Tool>,
 }
 
 #[derive(Debug, Default)]
@@ -73,6 +78,7 @@ struct RawPreset {
     background: Option<String>,
     #[serde(default)]
     args: Vec<String>,
+    tool: Option<String>,
 }
 
 const AUDIO: &[&str] = &[
@@ -138,6 +144,20 @@ impl RawPreset {
                 self.id
             ));
         }
+        let tool = match (self.kind, self.tool.as_deref()) {
+            (Kind::PdfTool, Some(t)) => Some(crate::pdf::tools::Tool::parse(t).ok_or(format!(
+                "`{}`: geçersiz tool `{t}` (merge | split | rotate-right | rotate-left | rotate-180)",
+                self.id
+            ))?),
+            (Kind::PdfTool, None) => return Err(format!("`{}`: kind = \"pdf-tool\" için tool gerekli", self.id)),
+            _ => None,
+        };
+        if self.kind == Kind::PdfTool && output != "pdf" {
+            return Err(format!(
+                "`{}`: kind = \"pdf-tool\" için output \"pdf\" olmalı",
+                self.id
+            ));
+        }
         let background = match &self.background {
             Some(c) => Some(parse_color(c).ok_or(format!("`{}`: geçersiz renk `{c}`", self.id))?),
             None => None,
@@ -158,6 +178,7 @@ impl RawPreset {
             max_height: self.max_height,
             background,
             args: self.args,
+            tool,
         })
     }
 }
@@ -175,6 +196,7 @@ fn image_preset(f: Format) -> Preset {
         max_height: None,
         background: None,
         args: vec![],
+        tool: None,
     }
 }
 
@@ -191,6 +213,7 @@ fn ffmpeg_preset(id: &str, label: &str, input: &[&str], args: &[&str]) -> Preset
         max_height: None,
         background: None,
         args: args.iter().map(|s| s.to_string()).collect(),
+        tool: None,
     }
 }
 
@@ -209,13 +232,78 @@ pub fn defaults() -> Vec<Preset> {
         max_height: None,
         background: None,
         args: vec![],
+        tool: None,
     });
+    use crate::pdf::tools::Tool;
+    for (id, label, tool, suffix, input) in [
+        (
+            "pdf-merge",
+            "PDF: Birleştir",
+            Tool::Merge,
+            "birleşik",
+            vec!["pdf".to_string(), "image".to_string()],
+        ),
+        (
+            "pdf-split",
+            "PDF: Sayfalara böl",
+            Tool::Split,
+            "sayfa",
+            vec!["pdf".to_string()],
+        ),
+        (
+            "pdf-rotate-right",
+            "PDF: 90° sağa döndür",
+            Tool::RotateRight,
+            "döndürülmüş",
+            vec!["pdf".to_string()],
+        ),
+        (
+            "pdf-rotate-left",
+            "PDF: 90° sola döndür",
+            Tool::RotateLeft,
+            "döndürülmüş",
+            vec!["pdf".to_string()],
+        ),
+        (
+            "pdf-rotate-180",
+            "PDF: 180° döndür",
+            Tool::Rotate180,
+            "döndürülmüş",
+            vec!["pdf".to_string()],
+        ),
+    ] {
+        v.push(Preset {
+            id: id.into(),
+            label: label.into(),
+            kind: Kind::PdfTool,
+            output: "pdf".into(),
+            input: expand_inputs(&input),
+            suffix: Some(suffix.into()),
+            quality: None,
+            max_width: None,
+            max_height: None,
+            background: None,
+            args: vec![],
+            tool: Some(tool),
+        });
+    }
     v.extend([
         ffmpeg_preset(
             "mp3",
             "MP3",
             &["media"],
-            &["-vn", "-c:a", "libmp3lame", "-q:a", "2"],
+            &[
+                "-vn",
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                // Windows Gezgini ID3v2.4 etiketlerini eksik gösterir; v2.3 + v1 en uyumlusu.
+                "-id3v2_version",
+                "3",
+                "-write_id3v1",
+                "1",
+            ],
         ),
         ffmpeg_preset("wav", "WAV", &["media"], &["-vn", "-c:a", "pcm_s16le"]),
         ffmpeg_preset("flac", "FLAC", &["media"], &["-vn", "-c:a", "flac"]),
@@ -267,7 +355,11 @@ pub fn defaults() -> Vec<Preset> {
             "gif",
             "GIF (animasyon)",
             &["video"],
-            &["-vf", "fps=12,scale=480:-1:flags=lanczos", "-an"],
+            &[
+                "-vf", // Tek geçişte palet üretip kullanır: 256 renge düşerken bantlaşma ve renk kayması azalır.
+                "fps=12,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse",
+                "-an",
+            ],
         ),
     ]);
     // `gif` kimliği görüntü GIF'iyle çakışmasın.
@@ -297,7 +389,7 @@ pub fn load() -> (Settings, Vec<String>) {
                     match crate::pdf::Engine::parse(e) {
                         Some(engine) => pdf_engine = engine,
                         None => warnings.push(format!(
-                            "{}: pdf_engine \"{e}\" geçersiz (auto | builtin | libreoffice)",
+                            "{}: pdf_engine \"{e}\" geçersiz (auto | office | libreoffice | builtin)",
                             path.display()
                         )),
                     }
@@ -338,10 +430,12 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 # Başka bir yerdeyse yolunu verin:
 # ffmpeg_path = "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe"
 
-# PDF: Office belgeleri (DOCX/XLSX/PPTX) için motor.
-#   auto        = LibreOffice kuruluysa onu, değilse yerleşik dönüştürücüyü kullan (varsayılan)
-#   builtin     = her zaman yerleşik dönüştürücü (hızlı, orta doğruluk)
+# PDF: Office belgeleri (DOCX/XLSX/PPTX, DOC/XLS/PPT, RTF, ODT/ODS/ODP) için motor.
+#   auto        = sırayla Microsoft Office, LibreOffice, yerleşik dönüştürücü; olmayan ya da
+#                 başarısız olan atlanır (varsayılan)
+#   office      = yalnızca Microsoft Office (Word/Excel/PowerPoint'in kendi PDF çıktısı)
 #   libreoffice = yalnızca LibreOffice
+#   builtin     = her zaman yerleşik dönüştürücü (hızlı, orta doğruluk)
 # pdf_engine = "auto"
 # Edge/Chrome ve LibreOffice otomatik bulunur; gerekirse yollarını verin:
 # browser_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"

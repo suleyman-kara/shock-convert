@@ -2,6 +2,8 @@
 
 Windows'ta görüntü, ses, video ve belge dosyalarına **sağ tıklayıp** istediğiniz formata çeviren küçük ve hızlı bir araç.
 
+**Web sitesi ve indirme:** https://suleyman-kara.github.io/shock-convert/
+
 ```
 foto.png     ──sağ tık──▶  Shock Convert ▸ JPG  ──▶  foto.jpg     (aynı klasörde)
 rapor.docx   ──sağ tık──▶  Shock Convert ▸ PDF  ──▶  rapor.pdf
@@ -29,24 +31,38 @@ rapor.docx   ──sağ tık──▶  Shock Convert ▸ PDF  ──▶  rapor.p
 ffmpeg paketlenmez. Şu sırayla aranır: `presets.toml` içindeki `ffmpeg_path`, kurulum klasöründeki `ffmpeg\ffmpeg.exe`, `PATH`.
 En kolay kurulum: `winget install Gyan.FFmpeg`. Bulunamazsa bildirimde bu komut gösterilir. Görüntü dönüştürme ffmpeg gerektirmez.
 
-## PDF (Office olmadan)
+## PDF (Office olsa da olmasa da)
 
 | Girdi | Nasıl dönüştürülür | Gereken |
 |---|---|---|
 | PNG, JPG, WebP, BMP, GIF, TIFF, ICO | Kendi PDF yazıcımız. JPG'ler yeniden sıkıştırılmadan gömülür | Hiçbir şey |
 | TXT, MD, HTML | Tarayıcı motoruyla "PDF olarak yazdır" | Edge (Windows 10/11'de zaten var) veya Chrome |
-| DOCX, XLSX, PPTX | Yerleşik dönüştürücü belgeyi HTML'e çevirir, tarayıcı PDF'e basar. **LibreOffice kuruluysa otomatik olarak o kullanılır** | Hiçbir şey (LibreOffice isteğe bağlı) |
-| DOC, XLS, PPT, RTF, ODT, ODS, ODP | LibreOffice | `winget install TheDocumentFoundation.LibreOffice` |
+| DOCX, XLSX, PPTX | **Microsoft Office kuruluysa** Word/Excel/PowerPoint'in kendi PDF çıktısı; yoksa LibreOffice; o da yoksa yerleşik dönüştürücü (HTML'e çevirip tarayıcıyla basar) | Hiçbir şey (Office/LibreOffice isteğe bağlı) |
+| DOC, XLS, PPT, RTF, ODT, ODS, ODP | Microsoft Office, yoksa LibreOffice | Office ya da `winget install TheDocumentFoundation.LibreOffice` |
 
 **Yerleşik dönüştürücünün kapsamı.** Word: başlıklar, kalın/italik/altı çizili, renk ve yazı boyutu,
 hizalama, madde ve numaralı listeler, tablolar, köprüler, gömülü resimler, sayfa sonları. Excel: görünür
 sayfalar tablo olarak, tarih hücreleri tarihe çevrilir. PowerPoint: her slayt bir sayfa; başlık, maddeler, tablolar, resimler.
 Desteklenmeyenler: üst/alt bilgi, dipnot, metin kutuları, şekiller, grafikler, Excel sayı biçimleri (para birimi vb.),
-slayt yerleşimi ve arka planları, birebir sayfa düzeni. Bu tür belgelerde LibreOffice kurmanız önerilir.
+slayt yerleşimi ve arka planları, birebir sayfa düzeni. Bu tür belgelerde Office ya da LibreOffice önerilir.
+
+**Office ile dönüştürme.** Belge salt okunur ve görünmez açılır, makrolar zorla kapatılır, hiçbir şey
+kaydedilmez. Parola korumalı belgeler parola sorulmadan hata verir. Açık olan Office pencerelerinize
+dokunulmaz; Office işleri sırayla yapılır. Office başarısız olursa (ör. etkinleştirilmemiş) sıradaki
+motora geçilir ve nedeni günlüğe yazılır.
 Belgelerdeki **dış bağlantılı** resimler (internetten ya da diskteki başka bir dosyadan) güvenlik için yüklenmez.
 
-Motor `presets.toml` içinde seçilebilir: `pdf_engine = "auto"` (varsayılan), `"builtin"` veya `"libreoffice"`.
+Motor `presets.toml` içinde seçilebilir: `pdf_engine = "auto"` (varsayılan: Office → LibreOffice → yerleşik), `"office"`, `"libreoffice"` veya `"builtin"`.
 Ham HTML dosyalarında sayfa boyutunu HTML'in kendisi belirler.
+
+## PDF işlemleri
+
+PDF dosyalarına sağ tıklayınca:
+- **PDF: Birleştir:** Birden çok PDF ve görüntü seçilir, dosya adına göre doğal sırayla tek bir `<ilk-ad>-birleşik.pdf` çıkar.
+- **PDF: Sayfalara böl:** Her sayfa ayrı bir dosyaya yazılır (`<ad>-sayfa-01.pdf` …).
+- **PDF: 90° sağa / 90° sola / 180° döndür.**
+
+Şifreli ve parola korumalı PDF'ler desteklenmez. Birleştirmede yer imleri ve form alanları korunmaz. Ayrıntılar: [docs/PDF-ARACLARI-ANALIZ.md](docs/PDF-ARACLARI-ANALIZ.md).
 
 ## Preset'ler
 
@@ -102,6 +118,8 @@ dönüştürmeyi ve çoklu seçim benzetimini dener, raporu panoya kopyalar.
 | Şeffaflık → JPG | Şeffaf alan beyaza oturtulur |
 | Kalite | JPG kalitesi 90. WebP şimdilik **kayıpsız** yazılır (ileride kayıplı seçenek eklenebilir) |
 | EXIF yönü | Uygulanır (telefon fotoğrafları doğru döner) |
+| Meta veri | JPG/PNG/WebP'de EXIF (kamera, tarih, konum) ve ICC renk profili korunur |
+| Dosya tarihi | Çıktı, kaynağın oluşturma/değiştirme tarihini taşır |
 | ICO | 16–256 px çoklu boyut; kaynaktan büyük boyutlar eklenmez, oran korunur |
 | Animasyonlu GIF/WebP | Yalnızca ilk kare |
 | Ses/video | ffmpeg ile; en fazla 2 dosya paralel (ffmpeg zaten çok çekirdek kullanır). Başlarken "dönüştürülüyor…" bildirimi çıkar. İlerleme çubuğu yok |
@@ -140,7 +158,8 @@ cargo check --workspace --target x86_64-pc-windows-gnu  # Windows kodunu Linux't
 ```
 crates/core      görüntü dönüştürme ve görüntü→PDF yazıcı (format, seçenekler, çıktı adlandırma)
 crates/cli       shock-convert.exe: komutlar, preset'ler, ffmpeg, menü modeli, eklentiler, kayıt defteri, bildirim
-crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, tarayıcı ve LibreOffice çalıştırıcıları
+crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, tarayıcı, Microsoft Office ve LibreOffice çalıştırıcıları
+site             tanıtım sitesi (React + Vite; bkz. docs/SITE.md)
 assets           geçici uygulama ikonu (make_icon.py ile üretilir; icon.ico exe'ye gömülür)
 installer        Inno Setup betiği
 ```
@@ -149,6 +168,18 @@ Kayıt defteri anahtarları (hepsi `HKCU`): `Software\Classes\SystemFileAssociat
 ve `Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert`. `unregister` yalnızca bunları siler, boş kalan üst anahtarları da temizler.
 
 Windows'ta elle doğrulama listesi: [docs/WINDOWS-TEST.md](docs/WINDOWS-TEST.md).
+
+## Sürümler
+
+Sürümler GitHub Actions ile otomatik çıkar, elle etiket atmak gerekmez:
+
+- **PR açılınca** (bu repodan): `pr-<numara>` adlı bir **ön sürüm** (pre-release) oluşur; PR'ın kurulum
+  dosyasını test etmek için. Her push'ta yenilenir, PR'a bağlantısı yorum olarak yazılır, PR kapanınca silinir.
+- **main'e birleşince:** son sürümden bir yama sürümü çıkar (`v0.1.0` → `v0.1.1`), sürüm notları PR'lardan
+  otomatik yazılır, kurulum dosyası GitHub Pages'teki sabit indirme adresine de konur.
+  - PR'a `release:minor` ya da `release:major` etiketi eklenirse o basamak artar (`v0.2.0`, `v1.0.0`).
+  - `release:skip` etiketi ya da yalnızca belge/site/iş akışı değişikliği sürüm çıkarmaz.
+  - `crates/cli/Cargo.toml` içindeki sürüm elle daha yükseğe çekilirse o kullanılır.
 
 ## Lisans ve kod imzalama
 

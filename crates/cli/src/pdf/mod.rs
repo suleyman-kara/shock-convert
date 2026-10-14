@@ -4,19 +4,23 @@
 //! |---|---|---|
 //! | Görüntüler | kendi PDF yazıcımız (çekirdek) | -- |
 //! | TXT, MD, HTML | tarayıcı motoru ("PDF olarak yazdır") | Edge/Chrome (Windows'ta hazır) |
-//! | DOCX, XLSX, PPTX | yerleşik çözümleyici -> HTML -> tarayıcı; LibreOffice varsa o tercih edilir | -- (isteğe bağlı LibreOffice) |
-//! | DOC, XLS, PPT, RTF, ODT, ODS, ODP | LibreOffice | LibreOffice |
+//! | DOCX, XLSX, PPTX | Microsoft Office -> LibreOffice -> yerleşik çözümleyici (HTML -> tarayıcı) | -- (Office/LibreOffice varsa onlar) |
+//! | DOC, XLS, PPT, RTF, ODT, ODS, ODP | Microsoft Office -> LibreOffice | Office ya da LibreOffice |
+//!
+//! Office belgelerinde bir motor başarısız olursa (ör. Office etkinleştirilmemiş) sıradakine geçilir.
 
 mod browser;
 mod docx;
 #[cfg(test)]
 mod fixtures;
 mod html;
-mod office;
+mod libreoffice;
+mod msoffice;
 mod ooxml;
 mod pptx;
 mod process;
 mod text;
+pub mod tools;
 mod xlsx;
 mod xml;
 
@@ -29,13 +33,16 @@ use self::process::TempDir;
 /// Office belgelerinde hangi motorun kullanılacağı.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Engine {
-    /// LibreOffice varsa onu, yoksa yerleşik dönüştürücüyü kullan.
+    /// Sırayla Microsoft Office, LibreOffice, yerleşik dönüştürücü; olmayan ya da başarısız
+    /// olan atlanır.
     #[default]
     Auto,
     /// Her zaman yerleşik dönüştürücü (hızlı, orta doğruluk).
     Builtin,
     /// Yalnızca LibreOffice (yoksa hata).
     LibreOffice,
+    /// Yalnızca Microsoft Office (yoksa hata).
+    Office,
 }
 
 impl Engine {
@@ -44,6 +51,7 @@ impl Engine {
             "auto" => Some(Engine::Auto),
             "builtin" => Some(Engine::Builtin),
             "libreoffice" => Some(Engine::LibreOffice),
+            "office" | "msoffice" => Some(Engine::Office),
             _ => None,
         }
     }
@@ -110,18 +118,8 @@ pub fn run(file: &Path, job: &PdfJob) -> Result<PathBuf, String> {
             text::markdown_to_html(title, bytes)
         }),
         Class::Html => html_file(file, job),
-        Class::Ooxml(kind) => {
-            let office = office::locate(job.libreoffice_path.as_deref());
-            match (job.engine, office) {
-                (Engine::Builtin, _) | (Engine::Auto, None) => builtin_ooxml(file, kind, job),
-                (_, Some(soffice)) => finalize(file, |out| office::to_pdf(&soffice, file, out)),
-                (Engine::LibreOffice, None) => Err(office::HINT.into()),
-            }
-        }
-        Class::OfficeOnly => {
-            let soffice = office::locate(job.libreoffice_path.as_deref()).ok_or(office::HINT)?;
-            finalize(file, |out| office::to_pdf(&soffice, file, out))
-        }
+        Class::Ooxml(kind) => office_document(file, &ext, Some(kind), job),
+        Class::OfficeOnly => office_document(file, &ext, None, job),
         Class::Unsupported => Err(format!("`.{ext}` PDF'e dönüştürülemez")),
     }
 }
@@ -173,6 +171,71 @@ fn html_file(file: &Path, job: &PdfJob) -> Result<PathBuf, String> {
     finalize(file, |out| browser::html_to_pdf(&browser, file, out))
 }
 
+const NO_OFFICE_APP: &str = "Bu belge türü için Microsoft Office ya da LibreOffice gerekli ama ikisi de \
+     bulunamadı. LibreOffice ücretsizdir: winget install TheDocumentFoundation.LibreOffice";
+
+/// Office belgesini motor sırasıyla dener: Microsoft Office -> LibreOffice -> yerleşik.
+/// `builtin` yalnızca yerleşik çözümleyicisi olan türlerde (DOCX/XLSX/PPTX) verilir.
+fn office_document(
+    file: &Path,
+    ext: &str,
+    builtin: Option<Ooxml>,
+    job: &PdfJob,
+) -> Result<PathBuf, String> {
+    let engine = match (job.engine, builtin) {
+        // Yerleşik dönüştürücünün açamadığı türde "builtin" seçimi otomatik sıraya düşer.
+        (Engine::Builtin, None) => Engine::Auto,
+        (e, _) => e,
+    };
+    let mut failures: Vec<String> = Vec::new();
+    let mut attempt = |name: &str, result: Result<PathBuf, String>| match result {
+        Ok(p) => Some(p),
+        Err(e) => {
+            crate::log::line(&format!("{name} başarısız, sıradaki motor denenecek: {e}"));
+            failures.push(e);
+            None
+        }
+    };
+
+    if matches!(engine, Engine::Auto | Engine::Office) {
+        match msoffice::App::for_ext(ext).filter(|a| a.installed()) {
+            Some(app) => {
+                let r = finalize(file, |out| msoffice::to_pdf(app, file, out));
+                if let Some(p) = attempt(app.name(), r) {
+                    return Ok(p);
+                }
+            }
+            None if engine == Engine::Office => return Err(msoffice::HINT.into()),
+            None => {}
+        }
+    }
+    if matches!(engine, Engine::Auto | Engine::LibreOffice) {
+        match libreoffice::locate(job.libreoffice_path.as_deref()) {
+            Some(soffice) => {
+                let r = finalize(file, |out| libreoffice::to_pdf(&soffice, file, out));
+                if let Some(p) = attempt("LibreOffice", r) {
+                    return Ok(p);
+                }
+            }
+            None if engine == Engine::LibreOffice => return Err(libreoffice::HINT.into()),
+            None => {}
+        }
+    }
+    if matches!(engine, Engine::Auto | Engine::Builtin)
+        && let Some(kind) = builtin
+    {
+        return builtin_ooxml(file, kind, job).map_err(|e| {
+            failures.push(e);
+            failures.join("; ")
+        });
+    }
+    if failures.is_empty() {
+        Err(NO_OFFICE_APP.into())
+    } else {
+        Err(failures.join("; "))
+    }
+}
+
 fn builtin_ooxml(file: &Path, kind: Ooxml, job: &PdfJob) -> Result<PathBuf, String> {
     let browser = browser_for(job)?;
     let html = match kind {
@@ -201,6 +264,7 @@ mod tests {
     #[test]
     fn engine_parses_case_insensitively() {
         assert_eq!(Engine::parse("LibreOffice"), Some(Engine::LibreOffice));
+        assert_eq!(Engine::parse("Office"), Some(Engine::Office));
         assert_eq!(Engine::parse("x"), None);
     }
 }

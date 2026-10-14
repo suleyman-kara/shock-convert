@@ -1,3 +1,11 @@
+# Derleme, test ve otomatik sürüm.
+#
+#   PR (bu repodan)    -> "pr-N" ön sürümü (pre-release): PR'ın kurulum dosyası, her push'ta yenilenir,
+#                         PR kapanınca silinir (pr-cleanup.yml). Sürüm: X.Y.Z-pr.N
+#   main'e birleştirme -> vX.Y.Z kararlı sürüm + GitHub Pages indirme bağlantısı (publish-download.yml).
+#                         Sürüm kuralları .github/scripts/next-version.sh içinde (yama artışı;
+#                         release:minor / release:major / release:skip PR etiketleri).
+#   Elle itilen v* etiketi -> o sürüm (eski yol; mevcut release'e dosya eklenir).
 name: build
 
 on:
@@ -6,7 +14,45 @@ on:
     tags: ["v*"]
   pull_request:
 
+# PR'da yeni push eskisini iptal eder; main'deki sürümler sırayla çıkar (aynı numara iki kez verilmesin).
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      kind: ${{ steps.v.outputs.kind }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # etiketler ve son sürümden bu yana değişen dosyalar için
+      - name: Birleştirilen PR'ın etiketleri
+        id: labels
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'list<<EOF'
+            gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].labels[]?.name' || true
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+      - name: Sürüm
+        id: v
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          LABELS: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ',') || steps.labels.outputs.list }}
+        run: |
+          bash .github/scripts/next-version.sh
+          cat "$GITHUB_OUTPUT"
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -17,14 +63,34 @@ jobs:
       - run: cargo test --workspace
       - run: cargo check --workspace --target x86_64-pc-windows-gnu
 
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+
   windows:
-    needs: test
+    needs: [version, test]
     runs-on: windows-latest
-    permissions:
-      contents: write # etiketlenen sürümde Release oluşturmak için
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Sürümü yaz (yalnızca bu derlemede; repoya commit edilmez)
+        shell: pwsh
+        run: |
+          $toml = "crates/cli/Cargo.toml"
+          (Get-Content $toml) -replace '^version = ".*"$', "version = `"$env:VERSION`"" | Set-Content $toml
+          Select-String -Path $toml -Pattern '^version = '
       - run: cargo build --release
       - name: İkon ve sürüm bilgisi exe'ye gömülmüş mü
         shell: pwsh
@@ -33,12 +99,34 @@ jobs:
           if ($info.ProductName -ne "Shock Convert") {
             throw "Kaynak (ikon/surum) exe'ye gomulmemis: ProductName='$($info.ProductName)'"
           }
-          Write-Host "Gomulu kaynak tamam: $($info.ProductName) $($info.FileVersion)"
+          if ($info.CompanyName -ne "Suleyman Kara") {
+            throw "Yayinci adi yanlis: CompanyName='$($info.CompanyName)'"
+          }
+          if ($info.ProductVersion -ne $env:VERSION) {
+            throw "Surum yanlis: ProductVersion='$($info.ProductVersion)', beklenen '$env:VERSION'"
+          }
+          Write-Host "Gomulu kaynak tamam: $($info.ProductName) $($info.ProductVersion)"
+      - name: Office PDF betiği (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $path = "crates/cli/src/pdf/msoffice.ps1"
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$null, [ref]$errors)
+          if ($errors) { $errors | Out-String | Write-Host; throw "msoffice.ps1 sozdizimi hatali" }
+          # Office yokken (CI) hata yolu: betik hata dosyasini yazip 1 ile cikmali, asili kalmamali.
+          $env:SC_IN = "C:\yok.docx"; $env:SC_OUT = "$env:RUNNER_TEMP\out.pdf"; $env:SC_APP = "Word"
+          $env:SC_PROGID = "ShockConvert.YokBoyleBirUygulama"; $env:SC_PROC = "YOKBOYLE"
+          $env:SC_ERR = "$env:RUNNER_TEMP\err.txt"; $env:SC_PIDS = "$env:RUNNER_TEMP\pids.txt"
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $path
+          if ($LASTEXITCODE -ne 1) { throw "beklenen cikis kodu 1, gelen $LASTEXITCODE" }
+          if (-not (Test-Path $env:SC_ERR)) { throw "hata dosyasi yazilmadi" }
+          Write-Host "Hata yolu tamam: $(Get-Content $env:SC_ERR)"
+          exit 0 # beklenen 1 kodu adimin sonucuna sizmasin
       - name: Kurulum sihirbazı (Inno Setup)
         run: |
           choco install innosetup -y --no-progress
-          $v = (Select-String -Path crates/cli/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" installer\shock-convert.iss
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:VERSION" installer\shock-convert.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC basarisiz: $LASTEXITCODE" }
       - uses: actions/upload-artifact@v4
         with:
           name: shock-convert-windows
@@ -46,11 +134,57 @@ jobs:
             dist/*.exe
             target/release/shock-convert.exe
 
-      - name: GitHub Release (yalnızca v* etiketinde)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+  release:
+    needs: [version, windows]
+    if: needs.version.outputs.kind != 'none'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # release ve etiket
+      pull-requests: write # PR'a ön sürüm bağlantısı
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.version.outputs.version }}
+      TAG: ${{ needs.version.outputs.tag }}
+      KIND: ${{ needs.version.outputs.kind }}
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          generate_release_notes: true
-          files: |
-            dist/shock-convert-setup-*.exe
-            target/release/shock-convert.exe
+          name: shock-convert-windows
+      - name: Yayınla
+        run: |
+          files=(dist/shock-convert-setup-*.exe target/release/shock-convert.exe)
+          ls -l "${files[@]}"
+          case "$KIND" in
+            stable)
+              gh release create "$TAG" "${files[@]}" --target "$GITHUB_SHA" \
+                --title "Shock Convert $VERSION" --generate-notes --latest ;;
+            tag)
+              # Etiket elle itildi; release arayüzden açılmış olabilir (notlar oradadır, tekrar yazılmaz).
+              if gh release view "$TAG" > /dev/null 2>&1; then
+                gh release upload "$TAG" "${files[@]}" --clobber
+              else
+                gh release create "$TAG" "${files[@]}" --verify-tag \
+                  --title "Shock Convert $VERSION" --generate-notes
+              fi ;;
+            pr)
+              pr="${TAG#pr-}"
+              sha="${{ github.event.pull_request.head.sha }}"
+              gh release delete "$TAG" --cleanup-tag --yes > /dev/null 2>&1 || true
+              gh release create "$TAG" "${files[@]}" --target "$sha" --prerelease --latest=false \
+                --title "PR #$pr önizleme ($VERSION)" \
+                --notes "#$pr numaralı PR'ın test derlemesi (commit ${sha:0:7}). Kararlı sürüm değildir; PR kapanınca silinir."
+              url="https://github.com/${GH_REPO}/releases/tag/${TAG}"
+              body="**Test derlemesi hazır:** [${VERSION}](${url}) (commit ${sha:0:7}). Her push'ta güncellenir."
+              gh pr comment "$pr" --edit-last --body "$body" 2> /dev/null || gh pr comment "$pr" --body "$body" ;;
+          esac
+          echo "Yayınlandı: https://github.com/${GH_REPO}/releases/tag/${TAG}" >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: [version, release]
+    if: needs.version.outputs.kind == 'stable' || needs.version.outputs.kind == 'tag'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-download.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}

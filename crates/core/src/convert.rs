@@ -4,8 +4,14 @@ use std::path::{Path, PathBuf};
 
 use image::codecs::ico::{IcoEncoder, IcoFrame};
 use image::codecs::jpeg::JpegEncoder;
+use image::codecs::png::PngEncoder;
+use image::codecs::tiff::TiffEncoder;
+use image::codecs::webp::WebPEncoder;
 use image::imageops::FilterType;
-use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageReader, Rgba, RgbaImage};
+use image::metadata::Orientation;
+use image::{
+    DynamicImage, ExtendedColorType, ImageDecoder, ImageEncoder, ImageReader, Rgba, RgbaImage,
+};
 
 use crate::format::Format;
 use crate::output::unique_output_path;
@@ -57,12 +63,12 @@ pub fn convert_file_with(
     target: Format,
     opts: &Options,
 ) -> Result<PathBuf, ConvertError> {
-    let mut img = load(input)?;
+    let (mut img, meta) = load_with_meta(input)?;
     if let Some((mw, mh)) = opts.max_size {
         img = shrink_to_fit(img, mw, mh);
     }
     let out = unique_output_path(input, opts.suffix.as_deref(), target.ext())?;
-    match write(&img, &out, target, opts) {
+    match write(&img, &out, target, opts, &meta) {
         Ok(()) => Ok(out),
         Err(e) => {
             let _ = std::fs::remove_file(&out);
@@ -73,12 +79,49 @@ pub fn convert_file_with(
 
 /// Dosyayı açar ve EXIF yönünü uygular. Animasyonlu girdilerde ilk kare alınır.
 pub(crate) fn load(input: &Path) -> Result<DynamicImage, ConvertError> {
+    load_with_meta(input).map(|(img, _)| img)
+}
+
+/// Kaynaktan taşınan meta veri: renk profili (ICC) ve EXIF (kamera, tarih, konum …).
+#[derive(Debug, Default)]
+pub(crate) struct Meta {
+    icc: Option<Vec<u8>>,
+    exif: Option<Vec<u8>>,
+}
+
+/// Görüntüyü EXIF yönü uygulanmış olarak yükler; ICC ve EXIF'i ayrıca döndürür. Yön pikselere
+/// uygulandığı için EXIF'teki yön etiketi "dönüşüm yok" yapılır, yoksa görüntü iki kez dönerdi.
+pub(crate) fn load_with_meta(input: &Path) -> Result<(DynamicImage, Meta), ConvertError> {
     let reader = ImageReader::open(input)?.with_guessed_format()?;
     let mut decoder = reader.into_decoder()?;
+    let icc = decoder
+        .icc_profile()
+        .ok()
+        .flatten()
+        .filter(|p| !p.is_empty());
+    let mut exif = decoder
+        .exif_metadata()
+        .ok()
+        .flatten()
+        .filter(|e| !e.is_empty());
     let orientation = decoder.orientation()?;
+    if let Some(e) = exif.as_mut() {
+        let _ = Orientation::remove_from_exif_chunk(e);
+    }
     let mut img = DynamicImage::from_decoder(decoder)?;
     img.apply_orientation(orientation);
-    Ok(img)
+    Ok((img, Meta { icc, exif }))
+}
+
+/// Kodlayıcının desteklediği meta veriyi ekler; desteklemeyenler (ör. TIFF'te EXIF) sessizce atlanır.
+fn with_meta<E: ImageEncoder>(mut enc: E, meta: &Meta) -> E {
+    if let Some(icc) = &meta.icc {
+        let _ = enc.set_icc_profile(icc.clone());
+    }
+    if let Some(exif) = &meta.exif {
+        let _ = enc.set_exif_metadata(exif.clone());
+    }
+    enc
 }
 
 fn write(
@@ -86,20 +129,29 @@ fn write(
     out: &Path,
     target: Format,
     opts: &Options,
+    meta: &Meta,
 ) -> Result<(), ConvertError> {
+    let file =
+        || -> Result<BufWriter<File>, ConvertError> { Ok(BufWriter::new(File::create(out)?)) };
     match target {
         Format::Jpg => {
             let rgb = flatten_on(img, opts.background);
-            let w = BufWriter::new(File::create(out)?);
-            JpegEncoder::new_with_quality(w, opts.jpeg_quality.clamp(1, 100)).encode_image(&rgb)?;
+            let enc = JpegEncoder::new_with_quality(file()?, opts.jpeg_quality.clamp(1, 100));
+            rgb.write_with_encoder(with_meta(enc, meta))?;
         }
+        Format::Png => img.write_with_encoder(with_meta(PngEncoder::new(file()?), meta))?,
+        Format::Webp => {
+            // Kayıpsız WebP kodlayıcı yalnızca 8 bit kabul eder.
+            let rgba = DynamicImage::ImageRgba8(img.to_rgba8());
+            rgba.write_with_encoder(with_meta(WebPEncoder::new_lossless(file()?), meta))?;
+        }
+        Format::Tiff => img.write_with_encoder(with_meta(TiffEncoder::new(file()?), meta))?,
         Format::Ico => write_ico(img, out)?,
         Format::Gif | Format::Bmp => {
             // Bu kodlayıcılar yalnızca 8 bit RGBA/RGB kabul eder.
             DynamicImage::ImageRgba8(img.to_rgba8())
                 .save_with_format(out, target.image_format())?;
         }
-        _ => img.save_with_format(out, target.image_format())?,
     }
     Ok(())
 }
@@ -236,6 +288,79 @@ mod tests {
         let out = convert_file_with(&input, Format::Jpg, &huge).unwrap();
         let img = image::open(out).unwrap();
         assert_eq!((img.width(), img.height()), (64, 48));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    /// Make = "Abc", Orientation = 6 (90° saat yönünde) içeren küçük bir EXIF (TIFF) bloğu.
+    fn sample_exif() -> Vec<u8> {
+        let mut e = b"II*\0\x08\0\0\0".to_vec();
+        e.extend_from_slice(&2u16.to_le_bytes());
+        // Make: ASCII, 4 bayt, değer satır içinde.
+        e.extend_from_slice(&[0x0f, 0x01, 2, 0, 4, 0, 0, 0, b'A', b'b', b'c', 0]);
+        // Orientation: SHORT, 1 adet, 6.
+        e.extend_from_slice(&[0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0]);
+        e.extend_from_slice(&0u32.to_le_bytes());
+        e
+    }
+
+    fn read_meta(path: &Path) -> (u32, u32, Meta, Orientation) {
+        let mut dec = ImageReader::open(path)
+            .unwrap()
+            .with_guessed_format()
+            .unwrap()
+            .into_decoder()
+            .unwrap();
+        let (w, h) = dec.dimensions();
+        let icc = dec.icc_profile().unwrap();
+        let exif = dec.exif_metadata().unwrap();
+        let o = dec.orientation().unwrap();
+        (w, h, Meta { icc, exif }, o)
+    }
+
+    #[test]
+    fn exif_and_icc_survive_and_orientation_is_applied_once() {
+        let d = temp_dir("meta");
+        let input = d.join("kamera.jpg");
+        let icc: Vec<u8> = (0..200u8).collect();
+        {
+            let px = RgbaImage::from_pixel(40, 20, Rgba([10, 200, 30, 255]));
+            let rgb = DynamicImage::ImageRgba8(px).to_rgb8();
+            let mut enc = JpegEncoder::new(BufWriter::new(File::create(&input).unwrap()));
+            enc.set_icc_profile(icc.clone()).unwrap();
+            enc.set_exif_metadata(sample_exif()).unwrap();
+            DynamicImage::ImageRgb8(rgb)
+                .write_with_encoder(enc)
+                .unwrap();
+        }
+        let (_, _, _, o) = read_meta(&input);
+        assert_eq!(o, Orientation::Rotate90);
+
+        for target in [Format::Jpg, Format::Png, Format::Webp] {
+            let o = Options {
+                suffix: Some(format!("{target:?}")),
+                ..Options::default()
+            };
+            let out = convert_file_with(&input, target, &o).unwrap();
+            let (w, h, meta, orient) = read_meta(&out);
+            assert_eq!((w, h), (20, 40), "{target:?}: yön pikselere uygulanmalı");
+            assert_eq!(
+                orient,
+                Orientation::NoTransforms,
+                "{target:?}: yön iki kez uygulanmamalı"
+            );
+            assert_eq!(
+                meta.icc.as_deref(),
+                Some(&icc[..]),
+                "{target:?}: ICC korunmalı"
+            );
+            let exif = meta
+                .exif
+                .unwrap_or_else(|| panic!("{target:?}: EXIF korunmalı"));
+            assert!(
+                exif.windows(3).any(|w| w == b"Abc"),
+                "{target:?}: Make kaybolmuş"
+            );
+        }
         let _ = fs::remove_dir_all(&d);
     }
 

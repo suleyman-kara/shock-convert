@@ -1,0 +1,58 @@
+# Tanıtım sitesini (site/, React + Vite) derleyip GitHub Pages'e (gh-pages dalının köküne) yayınlar.
+# download/ (kurulum dosyaları, publish-download yazar), CNAME (özel alan adı) ve .nojekyll korunur.
+
+name: site
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "crates/cli/Cargo.toml", ".github/workflows/site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+
+      - name: gh-pages dalına yayınla
+        run: |
+          git init -q pages
+          cd pages
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin gh-pages; then
+            git checkout -q -b gh-pages FETCH_HEAD
+          else
+            git checkout -q --orphan gh-pages
+          fi
+          # Eski site dosyalarını kaldır; indirmeler, alan adı ayarı ve .nojekyll kalır.
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name download ! -name CNAME ! -name .nojekyll -exec rm -rf {} +
+          cp -r ../site/dist/. .
+          touch .nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok."
+          else
+            git commit -q -m "Site: ${GITHUB_SHA::7}"
+            git push -q origin gh-pages
+          fi

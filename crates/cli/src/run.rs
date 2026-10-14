@@ -50,6 +50,14 @@ impl Report {
 
 /// Dosyaları paralel işler. Sonuç sırası girdi sırasından bağımsızdır.
 pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
+    // Birleştirme dosyaları tek tek değil, hep birlikte işler.
+    if let Action::PdfTool {
+        tool: crate::pdf::tools::Tool::Merge,
+        suffix,
+    } = &entry.action
+    {
+        return merge_all(entry, files, suffix);
+    }
     let report = Mutex::new(Report::default());
     let next = AtomicUsize::new(0);
     // ffmpeg kendi içinde çok çekirdek kullanır; üst üste fazla süreç başlatma.
@@ -96,16 +104,64 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
     if !entry.accepts(&ext) {
         return Outcome::Skipped;
     }
+    // Harici araçlara (ffmpeg, LibreOffice, tarayıcı, eklentiler) her zaman mutlak yol verilir:
+    // komut satırından göreli "-y.mp4" gibi bir ad, çıktısı "-y.mp3" olunca seçenek sanılıyordu.
+    let file = &absolute_input(file);
     let result = match &entry.action {
         Action::Image { format, options } => convert_image(file, *format, options),
         Action::Ffmpeg(job) => run_ffmpeg(file, job),
         Action::Pdf(job) => crate::pdf::run(file, job),
+        Action::PdfTool { tool, suffix } => {
+            use crate::pdf::tools::{self, Tool};
+            match tool {
+                Tool::Split => tools::split(file, suffix),
+                Tool::Merge => tools::merge(std::slice::from_ref(file), suffix),
+                _ => tools::rotate(file, *tool, suffix),
+            }
+        }
         Action::Plugin(p) => run_plugin(p, file),
     };
     match result {
-        Ok(out) => Outcome::Done(out),
+        Ok(out) => {
+            // Çıktı kaynağın tarihlerini taşır: Gezgin'de tarihe göre sıralama ve fotoğraf
+            // arşivleri bozulmasın. PDF araçları bunu kendi yazdıkları her dosya için yapar;
+            // eklentilerin çıktısına dokunulmaz.
+            if !matches!(entry.action, Action::Plugin(_) | Action::PdfTool { .. })
+                && let Err(e) = shock_convert_core::copy_file_times(file, &out)
+            {
+                crate::log::line(&format!("tarih kopyalanamadı {}: {e}", out.display()));
+            }
+            Outcome::Done(out)
+        }
         Err(e) => Outcome::Failed(e),
     }
+}
+
+fn merge_all(entry: &Entry, files: &[PathBuf], suffix: &str) -> Report {
+    let mut report = Report::default();
+    let mut accepted = Vec::new();
+    for f in files {
+        let ext = f
+            .extension()
+            .map(|e| e.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if entry.accepts(&ext) {
+            accepted.push(absolute_input(f));
+        } else {
+            report.skipped += 1;
+        }
+    }
+    match crate::pdf::tools::merge(&accepted, suffix) {
+        Ok(out) => report.done.push(out),
+        Err(e) => report
+            .failed
+            .push((accepted.first().cloned().unwrap_or_default(), e)),
+    }
+    report
+}
+
+fn absolute_input(file: &Path) -> PathBuf {
+    std::path::absolute(file).unwrap_or_else(|_| file.to_path_buf())
 }
 
 fn convert_image(file: &Path, target: Format, options: &Options) -> Result<PathBuf, String> {
@@ -157,4 +213,17 @@ fn run_plugin(p: &PluginEntry, input: &Path) -> Result<PathBuf, String> {
         return Err("eklenti çıktı dosyası üretmedi".into());
     }
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relative_inputs_become_absolute_so_tools_never_see_a_leading_dash() {
+        let abs = absolute_input(Path::new("-y.mp4"));
+        assert!(abs.is_absolute(), "{abs:?}");
+        assert_eq!(abs.file_name().unwrap(), "-y.mp4");
+        assert!(!abs.to_string_lossy().starts_with('-'));
+    }
 }

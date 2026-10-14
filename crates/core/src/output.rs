@@ -33,6 +33,24 @@ pub fn unique_output_path(input: &Path, suffix: Option<&str>, ext: &str) -> io::
     unreachable!("sonsuz aralıkta boş ad bulunur")
 }
 
+/// Çıktının tarihlerini kaynağınkiyle aynı yapar: değiştirilme ve erişim; Windows'ta oluşturulma da.
+/// Böylece dönüştürülen fotoğraflar arşivde ve "tarihe göre sırala"da yerini korur.
+pub fn copy_file_times(src: &Path, dst: &Path) -> io::Result<()> {
+    let meta = std::fs::metadata(src)?;
+    let mut times = std::fs::FileTimes::new().set_modified(meta.modified()?);
+    if let Ok(accessed) = meta.accessed() {
+        times = times.set_accessed(accessed);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::FileTimesExt;
+        if let Ok(created) = meta.created() {
+            times = times.set_created(created);
+        }
+    }
+    OpenOptions::new().write(true).open(dst)?.set_times(times)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,6 +103,25 @@ mod tests {
         });
         let unique: std::collections::HashSet<_> = paths.iter().collect();
         assert_eq!(unique.len(), 16);
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn output_gets_source_modification_time() {
+        let d = temp_dir("times");
+        let src = d.join("eski.png");
+        fs::write(&src, b"x").unwrap();
+        let old = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_500_000_000);
+        fs::File::options()
+            .write(true)
+            .open(&src)
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        let dst = d.join("eski.jpg");
+        fs::write(&dst, b"y").unwrap();
+        copy_file_times(&src, &dst).unwrap();
+        assert_eq!(fs::metadata(&dst).unwrap().modified().unwrap(), old);
         let _ = fs::remove_dir_all(&d);
     }
 }
