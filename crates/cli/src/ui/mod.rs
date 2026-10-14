@@ -75,6 +75,12 @@ pub fn serve(app: Arc<dyn App>, print_url: bool) -> Result<(), String> {
     loop {
         match listener.accept() {
             Ok((stream, _)) => {
+                // Windows'ta kabul edilen bağlantı dinleyicinin engellemesiz kipini devralır;
+                // istek henüz gelmemişse okuma "WouldBlock" ile düşer ve bağlantı yanıtsız kapanırdı.
+                if let Err(e) = stream.set_nonblocking(false) {
+                    crate::log::line(&format!("pencere: {e}"));
+                    continue;
+                }
                 let s = Arc::clone(&server);
                 std::thread::spawn(move || {
                     if let Err(e) = handle(&s, stream) {
