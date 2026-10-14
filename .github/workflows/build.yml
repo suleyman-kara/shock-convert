@@ -121,6 +121,7 @@ jobs:
           if ($LASTEXITCODE -ne 1) { throw "beklenen cikis kodu 1, gelen $LASTEXITCODE" }
           if (-not (Test-Path $env:SC_ERR)) { throw "hata dosyasi yazilmadi" }
           Write-Host "Hata yolu tamam: $(Get-Content $env:SC_ERR)"
+          exit 0 # beklenen 1 kodu adimin sonucuna sizmasin
       - name: Kurulum sihirbazı (Inno Setup)
         run: |
           choco install innosetup -y --no-progress
