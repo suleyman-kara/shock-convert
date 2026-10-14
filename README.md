@@ -192,7 +192,7 @@ third_party      PDFium sürüm ve SHA-256 sabitlemesi (indirilen dosyalar repoy
 Kayıt defteri anahtarları (hepsi `HKCU`): `Software\Classes\SystemFileAssociations\.<uzantı>\shell\ShockConvert`
 ve `Software\Microsoft\Windows\CurrentVersion\Uninstall\ShockConvert`. `unregister` yalnızca bunları siler, boş kalan üst anahtarları da temizler.
 
-Windows'ta elle doğrulama listesi: [docs/WINDOWS-TEST.md](docs/WINDOWS-TEST.md).
+Windows'ta elle doğrulama listesi: [#25](https://github.com/suleyman-kara/shock-convert/issues/25) (yeni özellikler oraya eklenir).
 
 ## Sürümler
 
