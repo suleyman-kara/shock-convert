@@ -68,18 +68,38 @@ pub struct ToolJob {
     pub quality: Option<u8>,
     /// Küçültmede resimlerin en uzun kenarı (piksel).
     pub max_side: Option<u32>,
+    /// Her çıktı kaynağın tarihlerini taşısın mı.
+    pub keep_dates: bool,
 }
 
 pub const DEFAULT_DPI: u32 = 150;
 
 impl ToolJob {
     /// Tek bir dosya üzerinde çalışır (birleştirme hariç; o `merge` ile topluca yapılır).
+    /// Yazılan ilk dosyayı döndürür (bölme ve görüntüye çevirme birden çok dosya yazar).
     pub fn run(&self, file: &Path) -> Result<PathBuf, String> {
+        let outputs = self.run_inner(file)?;
+        if self.keep_dates {
+            for out in &outputs {
+                let _ = shock_convert_core::copy_file_times(file, out);
+            }
+        }
+        outputs
+            .into_iter()
+            .next()
+            .ok_or_else(|| "çıktı yazılamadı".into())
+    }
+
+    fn run_inner(&self, file: &Path) -> Result<Vec<PathBuf>, String> {
+        let one = |r: Result<PathBuf, String>| r.map(|p| vec![p]);
         match self.tool {
             Tool::Split => split(file, &self.suffix),
-            Tool::Merge => merge(std::slice::from_ref(&file.to_path_buf()), &self.suffix),
+            Tool::Merge => one(merge(
+                std::slice::from_ref(&file.to_path_buf()),
+                &self.suffix,
+            )),
             Tool::RotateRight | Tool::RotateLeft | Tool::Rotate180 => {
-                rotate(file, self.tool, &self.suffix)
+                one(rotate(file, self.tool, &self.suffix))
             }
             Tool::ToImages => {
                 let opts = shock_convert_core::Options {
@@ -90,14 +110,14 @@ impl ToolJob {
                 };
                 super::render::to_images(file, self.image_format, self.dpi, &self.suffix, &opts)
             }
-            Tool::ToText => super::render::to_text(file),
+            Tool::ToText => one(super::render::to_text(file)),
             Tool::Compress => {
                 let d = Compression::default();
                 let opts = Compression {
                     quality: self.quality.unwrap_or(d.quality),
                     max_side: self.max_side.unwrap_or(d.max_side),
                 };
-                compress(file, &self.suffix, opts)
+                one(compress(file, &self.suffix, opts))
             }
         }
     }
@@ -243,8 +263,6 @@ fn write_reserved(
     bytes: Result<Vec<u8>, String>,
 ) -> Result<PathBuf, String> {
     let out = write_output(input, Some(suffix), "pdf", &bytes?).map_err(err)?;
-    // Çıktı, kaynağın tarihini taşır (Gezgin'de tarihe göre sıralama bozulmasın).
-    let _ = shock_convert_core::copy_file_times(input, &out);
     Ok(out)
 }
 
@@ -325,22 +343,21 @@ pub fn merge(files: &[PathBuf], suffix: &str) -> Result<PathBuf, String> {
     write_reserved(files[0], suffix, builder.finish())
 }
 
-/// Her sayfayı ayrı bir PDF olarak yazar: `<ad>-<ek>-01.pdf`, `-02` … Yazılan ilk dosyayı döndürür.
-pub fn split(file: &Path, suffix: &str) -> Result<PathBuf, String> {
+/// Her sayfayı ayrı bir PDF olarak yazar: `<ad>-<ek>-01.pdf`, `-02` … Yazılanları sırayla döndürür.
+pub fn split(file: &Path, suffix: &str) -> Result<Vec<PathBuf>, String> {
     let doc = load_pdf(file)?;
     let count = doc.get_pages().len() as u32;
     if count < 2 {
         return Err("tek sayfalık PDF bölünemez".into());
     }
     let width = count.to_string().len();
-    let mut first = None;
-    for n in 1..=count {
-        let mut b = Builder::new();
-        b.append(doc.clone(), Some(&[n]));
-        let out = write_reserved(file, &format!("{suffix}-{n:0width$}"), b.finish())?;
-        first.get_or_insert(out);
-    }
-    first.ok_or_else(|| "sayfa yazılamadı".into())
+    (1..=count)
+        .map(|n| {
+            let mut b = Builder::new();
+            b.append(doc.clone(), Some(&[n]));
+            write_reserved(file, &format!("{suffix}-{n:0width$}"), b.finish())
+        })
+        .collect()
 }
 
 /// Tüm sayfaları döndürür; belgenin geri kalanı (yer imleri, formlar) olduğu gibi kalır.
@@ -627,7 +644,7 @@ mod tests {
         let d = dir("split");
         let src = d.join("rapor.pdf");
         make_pdf(&src, &["Bir", "Iki", "Uc"], 0);
-        let first = split(&src, "sayfa").unwrap();
+        let first = split(&src, "sayfa").unwrap().remove(0);
         assert_eq!(first, d.join("rapor-sayfa-1.pdf"));
         for (n, label) in [(1, "Bir"), (2, "Iki"), (3, "Uc")] {
             let p = d.join(format!("rapor-sayfa-{n}.pdf"));
@@ -788,6 +805,7 @@ mod tests {
             dpi: 72,
             quality: None,
             max_side: None,
+            keep_dates: true,
         };
         let first = job.run(&input).unwrap();
         assert_eq!(

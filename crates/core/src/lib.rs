@@ -1,11 +1,12 @@
 //! Shock Convert çekirdeği: format tanımları, çıktı adlandırma ve dönüştürme.
 
 pub mod convert;
+pub mod exif;
 pub mod format;
 pub mod output;
 pub mod pdf;
 
-pub use convert::{ConvertError, Options, convert_file, convert_file_with, save_image};
+pub use convert::{ConvertError, Metadata, Options, convert_file, convert_file_with, save_image};
 pub use format::Format;
 /// Çağıranların aynı `image` sürümünün türlerini (DynamicImage …) kullanabilmesi için.
 pub use image;

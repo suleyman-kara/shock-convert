@@ -117,7 +117,8 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
             // Çıktı kaynağın tarihlerini taşır: Gezgin'de tarihe göre sıralama ve fotoğraf
             // arşivleri bozulmasın. PDF araçları bunu kendi yazdıkları her dosya için yapar;
             // eklentilerin çıktısına dokunulmaz.
-            if !matches!(entry.action, Action::Plugin(_) | Action::PdfTool(_))
+            if entry.keep_dates
+                && !matches!(entry.action, Action::Plugin(_) | Action::PdfTool(_))
                 && let Err(e) = shock_convert_core::copy_file_times(file, &out)
             {
                 crate::log::line(&format!("tarih kopyalanamadı {}: {e}", out.display()));

@@ -32,6 +32,8 @@ pub struct Entry {
     /// Bu girdinin menüde görüneceği dosya uzantıları (küçük harf, noktasız).
     pub input_exts: Vec<String>,
     pub action: Action,
+    /// Çıktı kaynağın tarihlerini taşısın mı (ayarlardan).
+    pub keep_dates: bool,
 }
 
 impl Entry {
@@ -69,6 +71,7 @@ fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
                         .then(|| (p.max_width.unwrap_or(0), p.max_height.unwrap_or(0))),
                     background: p.background.unwrap_or(defaults.background),
                     suffix: p.suffix.clone(),
+                    metadata: s.metadata,
                 },
             }
         }
@@ -79,6 +82,7 @@ fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
             dpi: p.dpi.unwrap_or(crate::pdf::tools::DEFAULT_DPI),
             quality: p.quality,
             max_side: p.max_width.max(p.max_height),
+            keep_dates: s.keep_dates,
         }),
         Kind::Pdf => Action::Pdf(crate::pdf::PdfJob {
             browser_path: s.browser_path.clone(),
@@ -97,6 +101,7 @@ fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
         label: p.label.clone(),
         input_exts,
         action,
+        keep_dates: s.keep_dates,
     })
 }
 
@@ -119,6 +124,8 @@ pub fn build(settings: &Settings, plugins: &[Plugin]) -> Vec<Entry> {
                     .map(|e| e.to_ascii_lowercase())
                     .collect(),
                 action: Action::Plugin(pe.clone()),
+                // Eklentinin çıktısına dokunulmaz.
+                keep_dates: false,
             });
         }
     }

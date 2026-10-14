@@ -67,14 +67,14 @@ fn open<'a>(pdfium: &'a Pdfium, file: &Path) -> Result<PdfDocument<'a>, String> 
 }
 
 /// Her sayfayı `dpi` çözünürlükte görüntüye çizer. Tek sayfalık belgede `ad.png`, çok sayfalıda
-/// `ad-<ek>-01.png`, `-02` … Yazılan ilk dosyayı döndürür.
+/// `ad-<ek>-01.png`, `-02` … Yazılanları sırayla döndürür.
 pub fn to_images(
     file: &Path,
     target: Format,
     dpi: u32,
     suffix: &str,
     opts: &Options,
-) -> Result<PathBuf, String> {
+) -> Result<Vec<PathBuf>, String> {
     let pdfium = pdfium()?;
     let doc = open(pdfium, file)?;
     let pages = doc.pages();
@@ -92,7 +92,7 @@ pub fn to_images(
         .render_form_data(true)
         .render_annotations(true);
 
-    let mut first = None;
+    let mut outputs = Vec::with_capacity(count);
     for (i, page) in pages.iter().enumerate() {
         let img = page
             .render_with_config(&config)
@@ -111,11 +111,9 @@ pub fn to_images(
         }
         .map_err(|e| e.to_string())?;
         save_image(&img, reserved.path(), target, opts).map_err(|e| e.to_string())?;
-        let out = reserved.commit().map_err(|e| e.to_string())?;
-        let _ = shock_convert_core::copy_file_times(file, &out);
-        first.get_or_insert(out);
+        outputs.push(reserved.commit().map_err(|e| e.to_string())?);
     }
-    first.ok_or_else(|| "sayfa yazılamadı".into())
+    Ok(outputs)
 }
 
 /// Sayfaların metnini okuma sırasıyla `ad.txt` (UTF-8) olarak yazar; sayfalar boş satırla ayrılır.
@@ -146,9 +144,7 @@ pub fn to_text(file: &Path) -> Result<PathBuf, String> {
         );
     }
     text.push_str("\r\n");
-    let out = write_output(file, None, "txt", text.as_bytes()).map_err(|e| e.to_string())?;
-    let _ = shock_convert_core::copy_file_times(file, &out);
-    Ok(out)
+    write_output(file, None, "txt", text.as_bytes()).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

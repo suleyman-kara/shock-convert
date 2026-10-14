@@ -45,13 +45,31 @@ pub struct Preset {
     pub dpi: Option<u32>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Settings {
     pub presets: Vec<Preset>,
     pub ffmpeg_path: Option<PathBuf>,
     pub browser_path: Option<PathBuf>,
     pub libreoffice_path: Option<PathBuf>,
     pub pdf_engine: crate::pdf::Engine,
+    /// Çıktı kaynağın tarihlerini taşısın mı (varsayılan evet).
+    pub keep_dates: bool,
+    /// Görüntülerde EXIF politikası (varsayılan: koru).
+    pub metadata: shock_convert_core::Metadata,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            presets: Vec::new(),
+            ffmpeg_path: None,
+            browser_path: None,
+            libreoffice_path: None,
+            pdf_engine: crate::pdf::Engine::default(),
+            keep_dates: true,
+            metadata: shock_convert_core::Metadata::default(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -60,6 +78,8 @@ struct FileModel {
     browser_path: Option<String>,
     libreoffice_path: Option<String>,
     pdf_engine: Option<String>,
+    keep_dates: Option<bool>,
+    metadata: Option<String>,
     #[serde(default)]
     hide: Vec<String>,
     #[serde(default)]
@@ -433,6 +453,8 @@ pub fn load() -> (Settings, Vec<String>) {
     let mut ffmpeg_path = None;
     let (mut browser_path, mut libreoffice_path) = (None, None);
     let mut pdf_engine = crate::pdf::Engine::default();
+    let mut keep_dates = true;
+    let mut metadata = shock_convert_core::Metadata::default();
 
     let path = config::presets_path();
     if let Ok(text) = std::fs::read_to_string(&path) {
@@ -447,6 +469,16 @@ pub fn load() -> (Settings, Vec<String>) {
                         Some(engine) => pdf_engine = engine,
                         None => warnings.push(format!(
                             "{}: pdf_engine \"{e}\" geçersiz (auto | office | libreoffice | builtin)",
+                            path.display()
+                        )),
+                    }
+                }
+                keep_dates = file.keep_dates.unwrap_or(true);
+                if let Some(m) = file.metadata.as_deref() {
+                    match shock_convert_core::Metadata::parse(m) {
+                        Some(v) => metadata = v,
+                        None => warnings.push(format!(
+                            "{}: metadata \"{m}\" geçersiz (keep | strip-location | strip)",
                             path.display()
                         )),
                     }
@@ -472,6 +504,8 @@ pub fn load() -> (Settings, Vec<String>) {
             browser_path,
             libreoffice_path,
             pdf_engine,
+            keep_dates,
+            metadata,
         },
         warnings,
     )
@@ -503,6 +537,11 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 #   compress  (quality = JPG kalitesi, max_width = resimlerin en uzun kenarı; varsayılan 70 / 1600)
 #   to-images (output = "png" | "jpg", dpi = çözünürlük; varsayılan 150)
 #   to-text   (output = "txt")
+
+# Çıktı dosyası kaynağın tarihlerini (oluşturma/değiştirme) taşısın mı:
+# keep_dates = true
+# Görüntülerde EXIF (kamera, tarih, konum): "keep" (koru), "strip-location" (konumu sil), "strip" (hepsini sil)
+# metadata = "keep"
 
 # Menüden gizlemek istediğiniz yerleşik preset'ler:
 # hide = ["bmp", "tiff", "ico"]
@@ -667,6 +706,28 @@ input = ["pdf"]
                 assert_eq!((p.dpi, p.output.as_str()), (Some(300), "jpg"));
             },
         );
+    }
+
+    #[test]
+    fn behavior_settings_default_on_and_can_be_changed() {
+        with_config(None, || {
+            let (s, _) = load();
+            assert!(s.keep_dates);
+            assert_eq!(s.metadata, shock_convert_core::Metadata::Keep);
+        });
+        with_config(
+            Some("keep_dates = false\nmetadata = \"strip-location\"\n"),
+            || {
+                let (s, w) = load();
+                assert!(w.is_empty(), "{w:?}");
+                assert!(!s.keep_dates);
+                assert_eq!(s.metadata, shock_convert_core::Metadata::StripLocation);
+            },
+        );
+        with_config(Some("metadata = \"sil\"\n"), || {
+            let (_, w) = load();
+            assert!(w.iter().any(|w| w.contains("metadata")), "{w:?}");
+        });
     }
 
     #[test]
