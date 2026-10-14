@@ -123,8 +123,9 @@ jobs:
           Copy-Item assets/icon.png (Join-Path $d "ornek.png")
           $env:SHOCK_CONVERT_CONFIG_DIR = Join-Path $d "cfg"
           $exe = "target/release/shock-convert.exe"
-          & $exe run pdf (Join-Path $d "ornek.png")
-          & $exe run pdf-png (Join-Path $d "ornek.pdf")
+          # Exe bir GUI uygulaması (konsol açmaz); PowerShell beklemesin diye -Wait.
+          Start-Process $exe -ArgumentList "run", "pdf", (Join-Path $d "ornek.png") -Wait -NoNewWindow
+          Start-Process $exe -ArgumentList "run", "pdf-png", (Join-Path $d "ornek.pdf") -Wait -NoNewWindow
           Get-ChildItem $d | Format-Table Name, Length
           if (-not (Test-Path (Join-Path $d "ornek (1).png"))) {
             Get-Content (Join-Path $env:LOCALAPPDATA "ShockConvert\log.txt") -Tail 20
