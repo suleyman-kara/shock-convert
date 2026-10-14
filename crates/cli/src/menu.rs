@@ -17,16 +17,10 @@ pub struct FfmpegJob {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    Image {
-        format: Format,
-        options: Options,
-    },
+    Image { format: Format, options: Options },
     Ffmpeg(FfmpegJob),
     Pdf(crate::pdf::PdfJob),
-    PdfTool {
-        tool: crate::pdf::tools::Tool,
-        suffix: String,
-    },
+    PdfTool(crate::pdf::tools::ToolJob),
     Plugin(PluginEntry),
 }
 
@@ -78,10 +72,14 @@ fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
                 },
             }
         }
-        Kind::PdfTool => Action::PdfTool {
+        Kind::PdfTool => Action::PdfTool(crate::pdf::tools::ToolJob {
             tool: p.tool?,
-            suffix: p.suffix.clone().unwrap_or_else(|| "işlenmiş".into()),
-        },
+            suffix: p.suffix.clone().unwrap_or_default(),
+            image_format: Format::from_ext(&p.output).unwrap_or(Format::Png),
+            dpi: p.dpi.unwrap_or(crate::pdf::tools::DEFAULT_DPI),
+            quality: p.quality,
+            max_side: p.max_width.max(p.max_height),
+        }),
         Kind::Pdf => Action::Pdf(crate::pdf::PdfJob {
             browser_path: s.browser_path.clone(),
             libreoffice_path: s.libreoffice_path.clone(),

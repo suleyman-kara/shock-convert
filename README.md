@@ -61,6 +61,12 @@ PDF dosyalarına sağ tıklayınca:
 - **PDF: Birleştir:** Birden çok PDF ve görüntü seçilir, dosya adına göre doğal sırayla tek bir `<ilk-ad>-birleşik.pdf` çıkar.
 - **PDF: Sayfalara böl:** Her sayfa ayrı bir dosyaya yazılır (`<ad>-sayfa-01.pdf` …).
 - **PDF: 90° sağa / 90° sola / 180° döndür.**
+- **PDF: Küçült:** Gömülü resimler küçültülüp (en uzun kenar 1600 px) JPEG olarak yeniden sıkıştırılır, kullanılmayan nesneler atılır: `<ad>-küçük.pdf`. Kazanç yoksa dosya yazılmaz. Resim kalitesi düşer; metin ve çizimler etkilenmez.
+- **PDF: Görüntülere çevir (PNG / JPG):** Her sayfa 150 dpi görüntü olur (`<ad>-sayfa-01.png` …; tek sayfalıysa `<ad>.png`).
+- **PDF: Metne çevir (TXT):** Seçilebilir metin `<ad>.txt` (UTF-8) dosyasına yazılır. Taranmış (yalnızca resim) PDF'lerde metin tanıma yoktur.
+
+Görüntüye ve metne çevirme, Chromium'un PDF motoru **PDFium** ile yapılır (kurulumla gelen `pdfium.dll`).
+Çözünürlük, kalite ve resim boyutu preset ile değiştirilebilir (`dpi`, `quality`, `max_width`; bkz. `presets.toml` örneği).
 
 Şifreli ve parola korumalı PDF'ler desteklenmez. Birleştirmede yer imleri ve form alanları korunmaz. Ayrıntılar: [docs/PDF-ARACLARI-ANALIZ.md](docs/PDF-ARACLARI-ANALIZ.md).
 
@@ -150,9 +156,11 @@ Eklenti kaldırılırken klasörü silip `register` çalıştırmak yeterlidir. 
 ## Geliştirme
 
 ```
+scripts/fetch-pdfium.sh                                 # PDFium'u indirir (PDF→görüntü/metin testleri için)
+export SHOCK_CONVERT_PDFIUM=$PWD/third_party/pdfium/linux-x64/lib
 cargo test --workspace                                  # çekirdek + menü + eklenti testleri (Linux/Windows)
 cargo check --workspace --target x86_64-pc-windows-gnu  # Windows kodunu Linux'tan derleme kontrolü
-.\build.ps1                                             # Windows: exe + kurulum sihirbazı
+.\build.ps1                                             # Windows: exe + pdfium.dll + kurulum sihirbazı
 ```
 
 ```
@@ -162,6 +170,7 @@ crates/cli/src/pdf  belge→PDF: DOCX/XLSX/PPTX→HTML çözümleyiciler, taray�
 site             tanıtım sitesi (React + Vite; bkz. docs/SITE.md)
 assets           geçici uygulama ikonu (make_icon.py ile üretilir; icon.ico exe'ye gömülür)
 installer        Inno Setup betiği
+third_party      PDFium sürüm ve SHA-256 sabitlemesi (indirilen dosyalar repoya girmez)
 ```
 
 Kayıt defteri anahtarları (hepsi `HKCU`): `Software\Classes\SystemFileAssociations\.<uzantı>\shell\ShockConvert`
@@ -184,6 +193,7 @@ Sürümler GitHub Actions ile otomatik çıkar, elle etiket atmak gerekmez:
 ## Lisans ve kod imzalama
 
 [LICENSE](LICENSE) dosyasına bakın (Apache-2.0).
+Kurulumla gelen PDFium (BSD-3-Clause / Apache-2.0) ve içerdiği kitaplıkların lisansları kurulum klasöründeki `licenses\pdfium` altındadır.
 
 Kod imzalama politikası: [CODE_SIGNING.md](CODE_SIGNING.md) · Code signing policy: [CODE_SIGNING.md](CODE_SIGNING.md).
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/) (başvuru aşamasında).

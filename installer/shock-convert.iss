@@ -31,6 +31,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "..\target\release\shock-convert.exe"; DestDir: "{app}"; Flags: ignoreversion
+; PDF -> görüntü/metin için PDFium (scripts\fetch-pdfium.ps1 indirir) ve lisansları.
+Source: "..\third_party\pdfium\win-x64\bin\pdfium.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\third_party\pdfium\win-x64\LICENSE"; DestDir: "{app}\licenses\pdfium"; Flags: ignoreversion
+Source: "..\third_party\pdfium\win-x64\licenses\*"; DestDir: "{app}\licenses\pdfium"; Flags: ignoreversion
 
 [Run]
 ; Menüyü (eklentiler dahil) kayıt defterine yazar.

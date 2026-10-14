@@ -51,18 +51,16 @@ impl Report {
 /// Dosyaları paralel işler. Sonuç sırası girdi sırasından bağımsızdır.
 pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
     // Birleştirme dosyaları tek tek değil, hep birlikte işler.
-    if let Action::PdfTool {
-        tool: crate::pdf::tools::Tool::Merge,
-        suffix,
-    } = &entry.action
+    if let Action::PdfTool(job) = &entry.action
+        && job.tool == crate::pdf::tools::Tool::Merge
     {
-        return merge_all(entry, files, suffix);
+        return merge_all(entry, files, &job.suffix);
     }
     let report = Mutex::new(Report::default());
     let next = AtomicUsize::new(0);
     // ffmpeg kendi içinde çok çekirdek kullanır; üst üste fazla süreç başlatma.
     let cap = match entry.action {
-        Action::Ffmpeg(_) | Action::Pdf(_) => 2,
+        Action::Ffmpeg(_) | Action::Pdf(_) | Action::PdfTool(_) => 2,
         _ => usize::MAX,
     };
     let workers = std::thread::available_parallelism()
@@ -111,14 +109,7 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
         Action::Image { format, options } => convert_image(file, *format, options),
         Action::Ffmpeg(job) => run_ffmpeg(file, job),
         Action::Pdf(job) => crate::pdf::run(file, job),
-        Action::PdfTool { tool, suffix } => {
-            use crate::pdf::tools::{self, Tool};
-            match tool {
-                Tool::Split => tools::split(file, suffix),
-                Tool::Merge => tools::merge(std::slice::from_ref(file), suffix),
-                _ => tools::rotate(file, *tool, suffix),
-            }
-        }
+        Action::PdfTool(job) => job.run(file),
         Action::Plugin(p) => run_plugin(p, file),
     };
     match result {
@@ -126,7 +117,7 @@ fn process(entry: &Entry, file: &Path) -> Outcome {
             // Çıktı kaynağın tarihlerini taşır: Gezgin'de tarihe göre sıralama ve fotoğraf
             // arşivleri bozulmasın. PDF araçları bunu kendi yazdıkları her dosya için yapar;
             // eklentilerin çıktısına dokunulmaz.
-            if !matches!(entry.action, Action::Plugin(_) | Action::PdfTool { .. })
+            if !matches!(entry.action, Action::Plugin(_) | Action::PdfTool(_))
                 && let Err(e) = shock_convert_core::copy_file_times(file, &out)
             {
                 crate::log::line(&format!("tarih kopyalanamadı {}: {e}", out.display()));

@@ -159,6 +159,15 @@ pub fn install() -> Result<(), String> {
     if src != dest {
         std::fs::copy(&src, &dest).map_err(|e| format!("exe kopyalanamadı: {e}"))?;
     }
+    // PDF'i görüntüye/metne çeviren PDFium kitaplığı exe'nin yanında durur.
+    if let Some(dll) = src
+        .parent()
+        .map(|p| p.join("pdfium.dll"))
+        .filter(|p| p.is_file() && *p != dir.join("pdfium.dll"))
+    {
+        std::fs::copy(&dll, dir.join("pdfium.dll"))
+            .map_err(|e| format!("pdfium.dll kopyalanamadı: {e}"))?;
+    }
     if let Some(src_plugins) = src
         .parent()
         .map(|p| p.join("plugins"))

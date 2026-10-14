@@ -77,6 +77,19 @@ pub fn convert_file_with(
     }
 }
 
+/// Bellekteki bir görüntüyü `out` yoluna `target` formatında yazar (ör. PDF sayfası çizimi).
+/// Meta veri yoktur; hata olursa yarım kalan dosya silinir.
+pub fn save_image(
+    img: &DynamicImage,
+    out: &Path,
+    target: Format,
+    opts: &Options,
+) -> Result<(), ConvertError> {
+    write(img, out, target, opts, &Meta::default()).inspect_err(|_| {
+        let _ = std::fs::remove_file(out);
+    })
+}
+
 /// Dosyayı açar ve EXIF yönünü uygular. Animasyonlu girdilerde ilk kare alınır.
 pub(crate) fn load(input: &Path) -> Result<DynamicImage, ConvertError> {
     load_with_meta(input).map(|(img, _)| img)

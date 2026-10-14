@@ -38,6 +38,11 @@ Bir klasörde farklı formatlarda birkaç deneme dosyası hazırlayın (boşlukl
 - [ ] Çok sayfalı PDF ▸ PDF: Sayfalara böl: her sayfa ayrı dosya, Edge'de doğru açılıyor.
 - [ ] PDF ▸ 90° sağa döndür: sayfalar dönmüş, orijinal dosya değişmemiş.
 - [ ] Parola korumalı bir PDF'te anlaşılır hata bildirimi çıkıyor ve yarım dosya kalmıyor.
+- [ ] Taranmış/fotoğraflı büyük bir PDF ▸ PDF: Küçült: `<ad>-küçük.pdf` belirgin şekilde küçük, Edge'de düzgün açılıyor, metin net.
+- [ ] Zaten küçük bir PDF ▸ PDF: Küçült: "küçültülemedi" bildirimi, dosya oluşmadı.
+- [ ] Çok sayfalı PDF ▸ PDF: Görüntülere çevir (PNG) ve (JPG): her sayfa ayrı görüntü, yazılar okunaklı; tek sayfalı PDF'te `ad.png`.
+- [ ] Türkçe karakterli bir PDF ▸ PDF: Metne çevir (TXT): Not Defteri'nde karakterler doğru; taranmış PDF'te "metin yok" bildirimi.
+- [ ] Kurulum klasöründe `pdfium.dll` ve `licenses\pdfium` var; kaldırınca hepsi siliniyor.
 
 ## Ses / video / preset
 - [ ] ffmpeg kurulu değilken bir `.mp4` ▸ MP3: bildirimde `winget install Gyan.FFmpeg` yönlendirmesi çıkıyor.

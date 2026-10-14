@@ -39,8 +39,10 @@ pub struct Preset {
     pub background: Option<[u8; 3]>,
     // ffmpeg
     pub args: Vec<String>,
-    // pdf-tool: merge | split | rotate-right | rotate-left | rotate-180
+    // pdf-tool: merge | split | rotate-right | rotate-left | rotate-180 | to-images | to-text | compress
     pub tool: Option<crate::pdf::tools::Tool>,
+    /// pdf-tool to-images: çözünürlük (varsayılan 150).
+    pub dpi: Option<u32>,
 }
 
 #[derive(Debug, Default)]
@@ -79,6 +81,7 @@ struct RawPreset {
     #[serde(default)]
     args: Vec<String>,
     tool: Option<String>,
+    dpi: Option<u32>,
 }
 
 const AUDIO: &[&str] = &[
@@ -146,17 +149,28 @@ impl RawPreset {
         }
         let tool = match (self.kind, self.tool.as_deref()) {
             (Kind::PdfTool, Some(t)) => Some(crate::pdf::tools::Tool::parse(t).ok_or(format!(
-                "`{}`: geçersiz tool `{t}` (merge | split | rotate-right | rotate-left | rotate-180)",
+                "`{}`: geçersiz tool `{t}` (merge | split | rotate-right | rotate-left | rotate-180 | to-images | to-text | compress)",
                 self.id
             ))?),
             (Kind::PdfTool, None) => return Err(format!("`{}`: kind = \"pdf-tool\" için tool gerekli", self.id)),
             _ => None,
         };
-        if self.kind == Kind::PdfTool && output != "pdf" {
-            return Err(format!(
-                "`{}`: kind = \"pdf-tool\" için output \"pdf\" olmalı",
-                self.id
-            ));
+        if let Some(tool) = tool {
+            use crate::pdf::tools::Tool;
+            let (ok, expected) = match tool {
+                Tool::ToImages => (
+                    matches!(output.as_str(), "png" | "jpg"),
+                    "\"png\" ya da \"jpg\"",
+                ),
+                Tool::ToText => (output == "txt", "\"txt\""),
+                _ => (output == "pdf", "\"pdf\""),
+            };
+            if !ok {
+                return Err(format!(
+                    "`{}`: bu PDF işlemi için output {expected} olmalı",
+                    self.id
+                ));
+            }
         }
         let background = match &self.background {
             Some(c) => Some(parse_color(c).ok_or(format!("`{}`: geçersiz renk `{c}`", self.id))?),
@@ -179,6 +193,7 @@ impl RawPreset {
             background,
             args: self.args,
             tool,
+            dpi: self.dpi,
         })
     }
 }
@@ -197,6 +212,7 @@ fn image_preset(f: Format) -> Preset {
         background: None,
         args: vec![],
         tool: None,
+        dpi: None,
     }
 }
 
@@ -214,6 +230,7 @@ fn ffmpeg_preset(id: &str, label: &str, input: &[&str], args: &[&str]) -> Preset
         background: None,
         args: args.iter().map(|s| s.to_string()).collect(),
         tool: None,
+        dpi: None,
     }
 }
 
@@ -233,13 +250,16 @@ pub fn defaults() -> Vec<Preset> {
         background: None,
         args: vec![],
         tool: None,
+        dpi: None,
     });
     use crate::pdf::tools::Tool;
-    for (id, label, tool, suffix, input) in [
+    let pdf = || vec!["pdf".to_string()];
+    for (id, label, tool, output, suffix, input) in [
         (
             "pdf-merge",
             "PDF: Birleştir",
             Tool::Merge,
+            "pdf",
             "birleşik",
             vec!["pdf".to_string(), "image".to_string()],
         ),
@@ -247,44 +267,81 @@ pub fn defaults() -> Vec<Preset> {
             "pdf-split",
             "PDF: Sayfalara böl",
             Tool::Split,
+            "pdf",
             "sayfa",
-            vec!["pdf".to_string()],
+            pdf(),
         ),
         (
             "pdf-rotate-right",
             "PDF: 90° sağa döndür",
             Tool::RotateRight,
+            "pdf",
             "döndürülmüş",
-            vec!["pdf".to_string()],
+            pdf(),
         ),
         (
             "pdf-rotate-left",
             "PDF: 90° sola döndür",
             Tool::RotateLeft,
+            "pdf",
             "döndürülmüş",
-            vec!["pdf".to_string()],
+            pdf(),
         ),
         (
             "pdf-rotate-180",
             "PDF: 180° döndür",
             Tool::Rotate180,
+            "pdf",
             "döndürülmüş",
-            vec!["pdf".to_string()],
+            pdf(),
+        ),
+        (
+            "pdf-compress",
+            "PDF: Küçült",
+            Tool::Compress,
+            "pdf",
+            "küçük",
+            pdf(),
+        ),
+        (
+            "pdf-png",
+            "PDF: Görüntülere çevir (PNG)",
+            Tool::ToImages,
+            "png",
+            "sayfa",
+            pdf(),
+        ),
+        (
+            "pdf-jpg",
+            "PDF: Görüntülere çevir (JPG)",
+            Tool::ToImages,
+            "jpg",
+            "sayfa",
+            pdf(),
+        ),
+        (
+            "pdf-txt",
+            "PDF: Metne çevir (TXT)",
+            Tool::ToText,
+            "txt",
+            "",
+            pdf(),
         ),
     ] {
         v.push(Preset {
             id: id.into(),
             label: label.into(),
             kind: Kind::PdfTool,
-            output: "pdf".into(),
+            output: output.into(),
             input: expand_inputs(&input),
-            suffix: Some(suffix.into()),
+            suffix: (!suffix.is_empty()).then(|| suffix.into()),
             quality: None,
             max_width: None,
             max_height: None,
             background: None,
             args: vec![],
             tool: Some(tool),
+            dpi: None,
         });
     }
     v.extend([
@@ -441,6 +498,12 @@ const SAMPLE: &str = r##"# Shock Convert preset'leri.
 # browser_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
 # libreoffice_path = "C:\\Program Files\\LibreOffice\\program\\soffice.exe"
 
+# PDF işlemleri (kind = "pdf-tool"), tool:
+#   merge | split | rotate-right | rotate-left | rotate-180   -> output = "pdf"
+#   compress  (quality = JPG kalitesi, max_width = resimlerin en uzun kenarı; varsayılan 70 / 1600)
+#   to-images (output = "png" | "jpg", dpi = çözünürlük; varsayılan 150)
+#   to-text   (output = "txt")
+
 # Menüden gizlemek istediğiniz yerleşik preset'ler:
 # hide = ["bmp", "tiff", "ico"]
 
@@ -559,6 +622,49 @@ input = ["image"]
                 assert_eq!(mp3.label, "MP3 (yüksek)");
                 assert!(!mp3.input.contains(&"mp4".to_string()));
                 assert_eq!(s.presets.iter().filter(|p| p.id == "mp3").count(), 1);
+            },
+        );
+    }
+
+    #[test]
+    fn pdf_tool_presets_check_output_per_tool() {
+        with_config(
+            Some(
+                r##"
+[[preset]]
+id = "pdf-tiff-300"
+label = "PDF: 300 dpi JPG"
+kind = "pdf-tool"
+tool = "to-images"
+output = "jpg"
+input = ["pdf"]
+dpi = 300
+[[preset]]
+id = "yanlis-metin"
+label = "x"
+kind = "pdf-tool"
+tool = "to-text"
+output = "pdf"
+input = ["pdf"]
+[[preset]]
+id = "yanlis-goruntu"
+label = "x"
+kind = "pdf-tool"
+tool = "to-images"
+output = "gif"
+input = ["pdf"]
+"##,
+            ),
+            || {
+                let (s, warnings) = load();
+                assert_eq!(warnings.len(), 2, "{warnings:?}");
+                assert!(
+                    warnings
+                        .iter()
+                        .any(|w| w.contains("yanlis-metin") && w.contains("txt"))
+                );
+                let p = s.presets.iter().find(|p| p.id == "pdf-tiff-300").unwrap();
+                assert_eq!((p.dpi, p.output.as_str()), (Some(300), "jpg"));
             },
         );
     }
