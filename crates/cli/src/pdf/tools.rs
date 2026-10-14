@@ -189,6 +189,8 @@ fn write_reserved(
         let _ = std::fs::remove_file(&out);
         e.to_string()
     })?;
+    // Çıktı, kaynağın tarihini taşır (Gezgin'de tarihe göre sıralama bozulmasın).
+    let _ = shock_convert_core::copy_file_times(input, &out);
     Ok(out)
 }
 

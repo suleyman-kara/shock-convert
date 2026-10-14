@@ -31,7 +31,7 @@ File Converter **GPL-3.0** lisanslıdır, Shock Convert ise **Apache-2.0**. Bu y
 | 10 | **MP3 etiket uyumluluğu** | ID3v2.3 + ID3v1 zorlanır | ffmpeg varsayılanı (ID3v2.4); Windows Gezgini eksik gösterebilir | 🔧 **Düzeltildi:** `-id3v2_version 3 -write_id3v1 1`; Türkçe etiketle doğrulandı |
 | 11 | İlerleme göstergesi | ffmpeg çıktısından süre/zaman okunarak yüzde hesaplanır | Yok; yalnızca başlangıç ve bitiş bildirimi | 📋 Sonraya: `-progress pipe:1` ile yüzde, uzun videolar için |
 | 12 | İptal | Kullanıcı iptal edebilir; süreç sonlandırılıp yarım çıktı silinir | İptal arayüzü yok | 📋 Sonraya (bir arayüz gerektirir) |
-| 13 | Çıktı tarihini kaynakla eşitleme | Çıktının değiştirilme tarihi kaynağınkiyle aynı yapılır | Çıktı "şimdi" tarihli | ❓ **Karar gerek:** fotoğraf arşivlerinde faydalı, ama "yeni oluşturulan dosyayı bulamadım" şikâyetine yol açabilir. Varsayılan kapalı bir preset seçeneği önerilir |
+| 13 | Çıktı tarihini kaynakla eşitleme | Çıktının değiştirilme tarihi kaynağınkiyle aynı yapılır | Çıktı kaynağın oluşturma/değiştirme/erişim tarihlerini taşır (görüntü, ses/video, PDF, PDF araçları; eklenti çıktısına dokunulmaz) | ✅ **Eklendi** (varsayılan açık; kapatma seçeneği ayarlar arayüzüyle gelecek) |
 | 14 | Dönüşüm sonrası girdiyi silme / arşiv klasörüne taşıma | Preset seçeneği | Yok | 📋 Sonraya: preset seçeneği olarak (veri kaybı riski nedeniyle varsayılan kapalı) |
 | 15 | Çıktı adı/klasör şablonu | Şablon ile farklı klasör ve ad üretilebilir | Yalnızca `suffix` | 📋 Sonraya: istenirse preset'e `output_dir` |
 | 16 | PDF → görüntü | Her sayfa ayrı görüntü, sabit DPI ile | Yok | 📋 #9 (PDF işlemleri) kapsamında |
@@ -41,7 +41,7 @@ File Converter **GPL-3.0** lisanslıdır, Shock Convert ise **Apache-2.0**. Bu y
 | 20 | Kaldırıcının artık bırakması | Bilinen upstream sorunu | Kaldırma menüyü, kayıt defterini, klasörü ve günlüğü siler (kullanıcı preset'i korunur) | ✅ Var |
 | 21 | Çok dosyalı seçim sınırı | Kabuk eklentisi sayesinde yok | Klasik menüde Explorer 15 dosya sınırı | 📋 #7 (kabuk eklentisi) bunu da çözer |
 | 22 | Süreç çökmesinde yarım dosya | — | Ad rezervasyonu nedeniyle süreç zorla sonlandırılırsa 0 baytlık çıktı kalabilir | 📋 Sonraya: geçici adla yazıp sonra yeniden adlandırma |
-| 23 | EXIF/ICC korunması | ImageMagick profilleri büyük ölçüde korur | Yalnızca EXIF yönü uygulanır; diğer EXIF ve ICC profili düşer | 📋 Sonraya: geniş renk gamlı fotoğraflarda renk kayması olabilir |
+| 23 | EXIF/ICC korunması | ImageMagick profilleri büyük ölçüde korur | JPG, PNG ve WebP'de EXIF (kamera, tarih, konum) ve ICC renk profili korunur; TIFF'te ICC korunur. Yön pikselere uygulandığı için EXIF yön etiketi sıfırlanır (görüntü iki kez dönmez). GIF/BMP/ICO bu verileri taşıyamaz | ✅ **Eklendi** |
 
 ## #6 (Office ile PDF) için çıkarılan dersler
 

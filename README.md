@@ -113,6 +113,8 @@ dönüştürmeyi ve çoklu seçim benzetimini dener, raporu panoya kopyalar.
 | Şeffaflık → JPG | Şeffaf alan beyaza oturtulur |
 | Kalite | JPG kalitesi 90. WebP şimdilik **kayıpsız** yazılır (ileride kayıplı seçenek eklenebilir) |
 | EXIF yönü | Uygulanır (telefon fotoğrafları doğru döner) |
+| Meta veri | JPG/PNG/WebP'de EXIF (kamera, tarih, konum) ve ICC renk profili korunur |
+| Dosya tarihi | Çıktı, kaynağın oluşturma/değiştirme tarihini taşır |
 | ICO | 16–256 px çoklu boyut; kaynaktan büyük boyutlar eklenmez, oran korunur |
 | Animasyonlu GIF/WebP | Yalnızca ilk kare |
 | Ses/video | ffmpeg ile; en fazla 2 dosya paralel (ffmpeg zaten çok çekirdek kullanır). Başlarken "dönüştürülüyor…" bildirimi çıkar. İlerleme çubuğu yok |
