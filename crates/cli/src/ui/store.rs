@@ -89,6 +89,16 @@ pub fn render(existing: &str, v: &Values) -> Result<String, String> {
     let mut doc: DocumentMut = existing
         .parse()
         .map_err(|e| format!("presets.toml okunamadı: {e}"))?;
+    // Yalnızca yorumdan oluşan dosya (ilk kurulumdaki açıklamalı örnek): yorumlar başta kalsın,
+    // ayarlar ve preset'ler altına eklensin.
+    if doc.iter().next().is_none() && !existing.trim().is_empty() {
+        let body = render("", v)?;
+        return Ok(if body.trim().is_empty() {
+            existing.to_string()
+        } else {
+            format!("{}\n\n{body}", existing.trim_end())
+        });
+    }
     set_or_remove(
         &mut doc,
         "keep_dates",
@@ -250,6 +260,28 @@ mod tests {
         let none = render(existing, &values()).unwrap();
         assert!(none.contains("# Benim notum: bunu silme"), "{none}");
         assert!(!none.contains("[[preset]]"));
+    }
+
+    #[test]
+    fn comment_only_sample_keeps_its_header_on_top() {
+        let sample = crate::presets::sample();
+        let mut v = values();
+        v.keep_dates = false;
+        v.presets = vec![web_jpg()];
+        let out = render(sample, &v).unwrap();
+        assert!(out.starts_with("# Shock Convert"), "{out:.200}");
+        let header = out.find("# Shock Convert").unwrap();
+        assert!(
+            out.find("[[preset]]").unwrap() > header
+                && out.find("keep_dates = false").unwrap() > header
+        );
+        let back: crate::presets::FileModel = toml::from_str(&out).unwrap();
+        assert_eq!((back.preset.len(), back.keep_dates), (1, Some(false)));
+        assert_eq!(
+            render(sample, &values()).unwrap(),
+            sample,
+            "değişiklik yoksa dosya aynı kalır"
+        );
     }
 
     #[test]

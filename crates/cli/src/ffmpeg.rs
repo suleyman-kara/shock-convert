@@ -41,10 +41,21 @@ pub fn locate(configured: Option<&Path>) -> Option<PathBuf> {
 
 /// `ffmpeg -i <girdi> <ayarlar> <çıktı>`. `-y`: çıktı adı önceden (boş dosya olarak) rezerve edilir.
 pub fn build_args(input: &Path, output: &Path, preset_args: &[String]) -> Vec<OsString> {
-    let mut a: Vec<OsString> = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i"]
-        .iter()
-        .map(OsString::from)
-        .collect();
+    // `-progress pipe:1`: ilerleme stdout'a anahtar=değer satırları olarak yazılır.
+    let mut a: Vec<OsString> = [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-progress",
+        "pipe:1",
+        "-nostats",
+        "-y",
+        "-i",
+    ]
+    .iter()
+    .map(OsString::from)
+    .collect();
     a.push(input.as_os_str().to_owned());
     a.extend(preset_args.iter().map(OsString::from));
     a.push(output.as_os_str().to_owned());
@@ -62,32 +73,113 @@ pub fn run(
     let reserved = reserve_output(input, suffix, ext).map_err(|e| e.to_string())?;
     let output = reserved.path();
 
+    let total = if crate::job::tracking() {
+        probe_duration(&ffmpeg, input)
+    } else {
+        None
+    };
     let mut cmd = Command::new(&ffmpeg);
     cmd.args(build_args(input, output, preset_args))
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    }
-    let out = cmd
-        .output()
+    no_window(&mut cmd);
+    let mut child = cmd
+        .spawn()
         .map_err(|e| format!("ffmpeg başlatılamadı: {e}"))?;
 
+    // Hata iletisi için stderr'i, ilerleme için stdout'u ayrı iş parçacıklarında oku
+    // (boru dolarsa ffmpeg takılırdı).
+    let stderr = child.stderr.take().map(|mut e| {
+        std::thread::spawn(move || {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut e, &mut text);
+            text
+        })
+    });
+    let progress = child.stdout.take().map(|out| {
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            for line in std::io::BufReader::new(out).lines().map_while(Result::ok) {
+                if let (Some(total), Some(us)) = (total, line.strip_prefix("out_time_us="))
+                    && let Ok(us) = us.trim().parse::<f64>()
+                {
+                    crate::job::set_progress(Some(us / 1e6 / total));
+                }
+            }
+        })
+    });
+
+    let status = loop {
+        if crate::job::cancelled() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(crate::job::CANCELLED.into());
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(100)),
+            Err(e) => return Err(e.to_string()),
+        }
+    };
+    if let Some(p) = progress {
+        let _ = p.join();
+    }
+    let stderr = stderr.and_then(|h| h.join().ok()).unwrap_or_default();
+
     let empty = std::fs::metadata(output).map_or(true, |m| m.len() == 0);
-    if !out.status.success() || empty {
-        let stderr = String::from_utf8_lossy(&out.stderr);
+    if !status.success() || empty {
         let msg = stderr.trim().lines().last().unwrap_or("bilinmeyen hata");
         return Err(format!("ffmpeg hata verdi: {msg}"));
     }
     reserved.commit().map_err(|e| e.to_string())
 }
 
+fn no_window(cmd: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    #[cfg(not(windows))]
+    let _ = cmd;
+}
+
+/// Girdinin süresi (saniye). ffmpeg, çıktı verilmeden çağrılınca bilgileri yazıp hatayla çıkar;
+/// "Duration: 00:01:23.45" satırı okunur.
+fn probe_duration(ffmpeg: &Path, input: &Path) -> Option<f64> {
+    let mut cmd = Command::new(ffmpeg);
+    cmd.args(["-hide_banner", "-nostdin", "-i"])
+        .arg(input)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    no_window(&mut cmd);
+    let out = cmd.output().ok()?;
+    parse_duration(&String::from_utf8_lossy(&out.stderr))
+}
+
+fn parse_duration(text: &str) -> Option<f64> {
+    let rest = text.split("Duration:").nth(1)?;
+    let hms = rest.trim_start().split(',').next()?.trim();
+    let mut parts = hms.split(':');
+    let (h, m, s) = (parts.next()?, parts.next()?, parts.next()?);
+    let secs =
+        h.parse::<f64>().ok()? * 3600.0 + m.parse::<f64>().ok()? * 60.0 + s.parse::<f64>().ok()?;
+    (secs > 0.0).then_some(secs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn duration_is_read_from_ffmpeg_banner() {
+        let text = "Input #0, mov,mp4, from 'a.mp4':\n  Duration: 00:01:23.50, start: 0.000000, bitrate: 1 kb/s";
+        assert_eq!(parse_duration(text), Some(83.5));
+        assert_eq!(parse_duration("  Duration: N/A, bitrate: N/A"), None);
+        assert_eq!(parse_duration("yok"), None);
+    }
 
     #[test]
     fn args_put_preset_options_between_input_and_output() {

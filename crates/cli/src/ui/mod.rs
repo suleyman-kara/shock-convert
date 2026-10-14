@@ -1,17 +1,19 @@
-//! Ayarlar penceresi. Ayrı bir arayüz kitaplığı yerine Windows'ta zaten bulunan Edge "uygulama
-//! penceresi" (`--app`, sekmesiz ve adres çubuksuz) kullanılır; sayfayı bu süreç yalnızca
-//! `127.0.0.1` üzerinde, rastgele bir portta ve rastgele bir anahtarla sunar.
+//! Pencereler (ayarlar, özel dönüştürme). Ayrı bir arayüz kitaplığı yerine Windows'ta zaten
+//! bulunan Edge "uygulama penceresi" (`--app`, sekmesiz ve adres çubuksuz) kullanılır; sayfayı bu
+//! süreç yalnızca `127.0.0.1` üzerinde, rastgele bir portta ve rastgele bir anahtarla sunar.
 //!
 //! Güvenlik: sayfa adresi anahtarı taşır; her API çağrısı `X-Token` başlığıyla gelmek zorundadır
 //! (başka bir sitenin tarayıcıdan bu başlıkla istek atması CORS ön kontrolüne takılır, biz de
 //! ön kontrole izin vermeyiz). `Host` başlığı denetlenir (DNS yeniden bağlama saldırısına karşı).
-//! Pencere kapanınca (sayfanın düzenli "buradayım" çağrıları kesilince) sunucu kendiliğinden kapanır.
+//! Pencere kapanınca (sayfanın düzenli "buradayım" çağrıları kesilince) sunucu kendiliğinden
+//! kapanır; süren bir iş varsa iş bitene kadar bekler.
 
+pub mod custom;
+pub mod settings;
 mod store;
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,25 +21,39 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use crate::presets::{self, Kind};
-
-const PAGE: &str = include_str!("page.html");
 /// Sayfa açılmazsa (tarayıcı başlamadı) bu süre sonunda kapan.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(120);
 /// Sayfa her 5 sn'de bir haber verir; bu kadar sessizlik pencerenin kapandığı anlamına gelir.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_BODY: usize = 2 * 1024 * 1024;
 
+/// Bir pencerenin sayfası ve API'si.
+pub trait App: Send + Sync + 'static {
+    /// Gömülü HTML.
+    fn page(&self) -> &'static str;
+    /// Pencere boyutu (piksel).
+    fn window_size(&self) -> (u32, u32);
+    /// `/api/...` isteğini karşılar; bilinmeyen yol için `None` (404).
+    fn api(&self, method: &str, path: &str, body: &[u8]) -> Option<(&'static str, Value)>;
+    /// Süren bir iş var mı (varsa pencere kapansa da sunucu beklemeye devam eder).
+    fn busy(&self) -> bool {
+        false
+    }
+    /// Pencere kapandıktan ve iş bittikten sonra, çıkmadan hemen önce çağrılır.
+    fn on_exit(&self, _window_open: bool) {}
+}
+
 struct Server {
     token: String,
     host: String,
     last_seen: Mutex<Option<Instant>>,
     closing: AtomicBool,
+    app: Arc<dyn App>,
 }
 
-/// Ayarlar penceresini açar ve kapanana kadar bekler. `print_url`: tarayıcı başlatmadan adresi
-/// yazar (test ve sorun giderme için).
-pub fn open(print_url: bool) -> Result<(), String> {
+/// Pencereyi açar ve kapanana (ve süren iş bitene) kadar bekler. `print_url`: tarayıcı
+/// başlatmadan adresi yazar (test ve sorun giderme için).
+pub fn serve(app: Arc<dyn App>, print_url: bool) -> Result<(), String> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| e.to_string())?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let server = Arc::new(Server {
@@ -45,12 +61,13 @@ pub fn open(print_url: bool) -> Result<(), String> {
         host: format!("127.0.0.1:{port}"),
         last_seen: Mutex::new(None),
         closing: AtomicBool::new(false),
+        app,
     });
     let url = format!("http://{}/?t={}", server.host, server.token);
     if print_url {
         println!("{url}");
     } else {
-        launch_window(&url)?;
+        launch_window(&url, server.app.window_size())?;
     }
 
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
@@ -61,7 +78,7 @@ pub fn open(print_url: bool) -> Result<(), String> {
                 let s = Arc::clone(&server);
                 std::thread::spawn(move || {
                     if let Err(e) = handle(&s, stream) {
-                        crate::log::line(&format!("ayarlar: {e}"));
+                        crate::log::line(&format!("pencere: {e}"));
                     }
                 });
             }
@@ -70,16 +87,19 @@ pub fn open(print_url: bool) -> Result<(), String> {
             }
             Err(e) => return Err(e.to_string()),
         }
-        if server.closing.load(Ordering::Relaxed) {
+        let seen = *server.last_seen.lock().unwrap();
+        let gone = match seen {
+            _ if server.closing.load(Ordering::Relaxed) => true,
+            None => started.elapsed() > LOAD_TIMEOUT,
+            Some(t) => t.elapsed() > IDLE_TIMEOUT,
+        };
+        if gone && !server.app.busy() {
             // Son yanıtın gitmesi için kısa bir süre tanı.
             std::thread::sleep(Duration::from_millis(200));
+            let window_open = seen.is_some_and(|t| t.elapsed() < IDLE_TIMEOUT)
+                && !server.closing.load(Ordering::Relaxed);
+            server.app.on_exit(window_open);
             return Ok(());
-        }
-        let seen = *server.last_seen.lock().unwrap();
-        match seen {
-            None if started.elapsed() > LOAD_TIMEOUT => return Ok(()),
-            Some(t) if t.elapsed() > IDLE_TIMEOUT => return Ok(()),
-            _ => {}
         }
     }
 }
@@ -101,8 +121,8 @@ fn random_token() -> String {
         .collect()
 }
 
-fn launch_window(url: &str) -> Result<(), String> {
-    let (settings, _) = presets::load();
+fn launch_window(url: &str, (w, h): (u32, u32)) -> Result<(), String> {
+    let (settings, _) = crate::presets::load();
     let browser = crate::pdf::browser::locate(settings.browser_path.as_deref())
         .ok_or_else(|| crate::pdf::browser::HINT.to_string())?;
     // Ayrı profil: kullanıcının tarayıcı oturumuna, sekmelerine ve eklentilerine dokunulmaz.
@@ -113,18 +133,18 @@ fn launch_window(url: &str) -> Result<(), String> {
     let mut cmd = std::process::Command::new(browser);
     cmd.arg(format!("--app={url}"))
         .arg(format!("--user-data-dir={}", profile.display()))
+        .arg(format!("--window-size={w},{h}"))
         .args([
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-extensions",
-            "--window-size=1040,820",
         ]);
     if std::env::var_os("SHOCK_CONVERT_NO_SANDBOX").is_some() {
         cmd.arg("--no-sandbox");
     }
     cmd.spawn()
         .map(|_| ())
-        .map_err(|e| format!("ayarlar penceresi açılamadı: {e}"))
+        .map_err(|e| format!("pencere açılamadı: {e}"))
 }
 
 struct Request {
@@ -227,11 +247,12 @@ fn handle(server: &Server, stream: TcpStream) -> Result<(), String> {
             .split('&')
             .any(|kv| kv == format!("t={}", server.token));
         if token_ok {
+            let page = server.app.page();
             respond(
                 &stream,
                 "200 OK",
                 "text/html; charset=utf-8",
-                PAGE.as_bytes(),
+                page.as_bytes(),
             );
         } else {
             respond(&stream, "403 Forbidden", "text/plain", b"forbidden");
@@ -245,126 +266,62 @@ fn handle(server: &Server, stream: TcpStream) -> Result<(), String> {
     *server.last_seen.lock().unwrap() = Some(Instant::now());
     match (req.method.as_str(), req.path.as_str()) {
         ("POST", "/api/ping") => respond_json(&stream, "200 OK", &json!({ "ok": true })),
-        ("GET", "/api/state") => match state() {
-            Ok(v) => respond_json(&stream, "200 OK", &v),
-            Err(e) => respond_json(&stream, "500 Internal Server Error", &json!({ "error": e })),
-        },
-        ("POST", "/api/save") => {
-            let (status, v) = save(&req.body);
-            respond_json(&stream, status, &v);
-        }
-        ("POST", "/api/open-file") => {
-            let path = presets::ensure_sample().map_err(|e| e.to_string())?;
-            open_in_editor(&path);
-            respond_json(&stream, "200 OK", &json!({ "ok": true }));
-        }
         ("POST", "/api/close") => {
             respond_json(&stream, "200 OK", &json!({ "ok": true }));
             server.closing.store(true, Ordering::Relaxed);
         }
-        _ => respond(&stream, "404 Not Found", "text/plain", b"not found"),
+        (method, path) => match server.app.api(method, path, &req.body) {
+            Some((status, v)) => respond_json(&stream, status, &v),
+            None => respond(&stream, "404 Not Found", "text/plain", b"not found"),
+        },
     }
     Ok(())
 }
 
-fn group_of(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Image => "image",
-        Kind::Pdf | Kind::PdfTool => "pdf",
-        Kind::Ffmpeg => "media",
+/// JSON hata yanıtı.
+pub(crate) fn error(status: &'static str, message: impl Into<String>) -> (&'static str, Value) {
+    (status, json!({ "error": message.into() }))
+}
+
+/// Dosyayı Gezgin'de seçili gösterir (Windows) ya da klasörünü açar.
+pub(crate) fn reveal(path: &std::path::Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut arg = std::ffi::OsString::from("/select,\"");
+        arg.push(path.as_os_str());
+        arg.push("\"");
+        let _ = std::process::Command::new("explorer.exe")
+            .raw_arg(arg)
+            .spawn();
     }
-}
-
-fn path_or_null(p: Option<PathBuf>) -> Value {
-    p.map_or(Value::Null, |p| Value::String(p.display().to_string()))
-}
-
-/// Arayüzün ilk açılışta ihtiyaç duyduğu her şey.
-fn state() -> Result<Value, String> {
-    let values = store::Values::current()?;
-    let (settings, warnings) = presets::load();
-    let builtins: Vec<Value> = presets::defaults()
-        .iter()
-        .map(|p| {
-            json!({
-                "id": p.id, "label": p.label, "kind": p.kind, "output": p.output,
-                "group": group_of(p.kind),
-            })
-        })
-        .collect();
-    use crate::pdf::msoffice::App;
-    let office: Vec<&str> = [App::Word, App::Excel, App::PowerPoint]
-        .into_iter()
-        .filter(|a| a.installed())
-        .map(App::name)
-        .collect();
-    let formats: Vec<Value> = shock_convert_core::Format::ALL
-        .iter()
-        .map(|f| json!({ "ext": f.ext(), "label": f.label() }))
-        .collect();
-    Ok(json!({
-        "values": values,
-        "builtins": builtins,
-        "formats": formats,
-        "detected": {
-            "ffmpeg": path_or_null(crate::ffmpeg::locate(settings.ffmpeg_path.as_deref())),
-            "browser": path_or_null(crate::pdf::browser::locate(settings.browser_path.as_deref())),
-            "libreoffice": path_or_null(crate::pdf::libreoffice::locate(settings.libreoffice_path.as_deref())),
-            "office": office,
-        },
-        "config_path": crate::config::presets_path().display().to_string(),
-        "warnings": warnings,
-        "version": env!("CARGO_PKG_VERSION"),
-        "windows": cfg!(windows),
-    }))
-}
-
-fn save(body: &[u8]) -> (&'static str, Value) {
-    let values: store::Values = match serde_json::from_slice(body) {
-        Ok(v) => v,
-        Err(e) => {
-            return (
-                "400 Bad Request",
-                json!({ "errors": [["", e.to_string()]] }),
-            );
+    #[cfg(not(windows))]
+    {
+        if let Some(dir) = path.parent() {
+            let _ = std::process::Command::new("xdg-open").arg(dir).spawn();
         }
-    };
-    if let Err(errors) = store::save(&values) {
-        return ("400 Bad Request", json!({ "errors": errors }));
     }
-    // Menü yeni preset'lerle yeniden kaydedilir (Windows'ta).
-    let menu = if cfg!(windows) {
-        match std::env::current_exe() {
-            Ok(exe) => crate::platform::register(&exe, &crate::load_entries()).err(),
-            Err(e) => Some(e.to_string()),
-        }
-    } else {
-        None
-    };
-    let (_, warnings) = presets::load();
-    (
-        "200 OK",
-        json!({ "ok": true, "menu_error": menu, "warnings": warnings }),
-    )
-}
-
-fn open_in_editor(path: &std::path::Path) {
-    let mut cmd = if cfg!(windows) {
-        std::process::Command::new("notepad.exe")
-    } else {
-        std::process::Command::new("xdg-open")
-    };
-    let _ = cmd.arg(path).spawn();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    struct Echo;
+    impl App for Echo {
+        fn page(&self) -> &'static str {
+            "<html>deneme</html>"
+        }
+        fn window_size(&self) -> (u32, u32) {
+            (100, 100)
+        }
+        fn api(&self, method: &str, path: &str, _: &[u8]) -> Option<(&'static str, Value)> {
+            (method == "GET" && path == "/api/state").then(|| ("200 OK", json!({ "ok": 1 })))
+        }
+    }
+
     /// Gerçek sunucuyu bir iş parçacığında başlatıp HTTP ile konuşur.
-    fn start() -> (String, String, std::thread::JoinHandle<()>) {
-        // `open` adresi stdout'a yazar; testte port ve anahtarı doğrudan kurmak için
-        // sunucuyu aynı mantıkla burada kuruyoruz.
+    fn start(requests: usize) -> (String, String, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         let server = Arc::new(Server {
@@ -372,10 +329,11 @@ mod tests {
             host: format!("127.0.0.1:{port}"),
             last_seen: Mutex::new(None),
             closing: AtomicBool::new(false),
+            app: Arc::new(Echo),
         });
         let (host, token) = (server.host.clone(), server.token.clone());
         let h = std::thread::spawn(move || {
-            for stream in listener.incoming().take(6) {
+            for stream in listener.incoming().take(requests) {
                 handle(&server, stream.unwrap()).unwrap();
             }
         });
@@ -392,7 +350,7 @@ mod tests {
 
     #[test]
     fn page_and_api_require_token_and_local_host() {
-        let (host, token, h) = start();
+        let (host, token, h) = start(7);
         let page = call(
             &host,
             &format!("GET /?t={token} HTTP/1.1\r\nHost: {host}\r\n\r\n"),
@@ -420,6 +378,15 @@ mod tests {
         );
         assert!(rebinding.starts_with("HTTP/1.1 403"));
 
+        let state = call(
+            &host,
+            &format!("GET /api/state HTTP/1.1\r\nHost: {host}\r\nX-Token: {token}\r\n\r\n"),
+        );
+        assert!(
+            state.starts_with("HTTP/1.1 200") && state.contains("\"ok\":1"),
+            "{state}"
+        );
+
         let ping = call(
             &host,
             &format!(
@@ -428,13 +395,11 @@ mod tests {
         );
         assert!(ping.starts_with("HTTP/1.1 200"), "{ping}");
 
-        let bad_save = call(
+        let unknown = call(
             &host,
-            &format!(
-                "POST /api/save HTTP/1.1\r\nHost: {host}\r\nX-Token: {token}\r\nContent-Length: 2\r\n\r\n{{}}"
-            ),
+            &format!("GET /api/nope HTTP/1.1\r\nHost: {host}\r\nX-Token: {token}\r\n\r\n"),
         );
-        assert!(bad_save.starts_with("HTTP/1.1 400"), "{bad_save}");
+        assert!(unknown.starts_with("HTTP/1.1 404"));
         h.join().unwrap();
     }
 

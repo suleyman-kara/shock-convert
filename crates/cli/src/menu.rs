@@ -43,7 +43,7 @@ impl Entry {
     }
 }
 
-fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
+pub(crate) fn preset_entry(p: &Preset, s: &Settings) -> Option<Entry> {
     let own_exts: Vec<&str> = match Format::from_ext(&p.output) {
         Some(f) => f.input_exts().to_vec(),
         None => vec![p.output.as_str()],

@@ -123,14 +123,14 @@ pub(crate) fn read_file() -> Result<FileModel, String> {
     }
 }
 
-const AUDIO: &[&str] = &[
+pub(crate) const AUDIO: &[&str] = &[
     "mp3", "wav", "flac", "ogg", "oga", "opus", "m4a", "aac", "wma", "aiff", "aif",
 ];
-const DOCUMENT: &[&str] = &[
+pub(crate) const DOCUMENT: &[&str] = &[
     "docx", "xlsx", "pptx", "doc", "xls", "ppt", "rtf", "odt", "ods", "odp", "txt", "md",
     "markdown", "html", "htm",
 ];
-const VIDEO: &[&str] = &[
+pub(crate) const VIDEO: &[&str] = &[
     "mp4", "mkv", "avi", "mov", "webm", "wmv", "flv", "m4v", "3gp", "mpg", "mpeg", "ts",
 ];
 

@@ -70,6 +70,22 @@ Görüntüye ve metne çevirme, Chromium'un PDF motoru **PDFium** ile yapılır 
 
 Şifreli ve parola korumalı PDF'ler desteklenmez. Birleştirmede yer imleri ve form alanları korunmaz. Ayrıntılar: [docs/PDF-ARACLARI-ANALIZ.md](docs/PDF-ARACLARI-ANALIZ.md).
 
+## Özel dönüştür
+
+Sağ tık ▸ Shock Convert ▸ **Özel dönüştür…** (komut satırında `shock-convert custom <dosyalar>`) seçili
+dosyalar için tek seferlik ayarlarla dönüştürme penceresi açar. Çoklu seçim tek pencerede toplanır.
+
+- **Görüntü:** biçim, kalite, en fazla genişlik/yükseklik, EXIF, saydam alan rengi
+- **Ses / video:** biçim, kalite (yüksek/dengeli/küçük), çözünürlük, ses kalitesi, sesi kaldırma,
+  başlangıç/bitiş ile kırpma, ek ffmpeg seçenekleri
+- **PDF işlemi:** küçült, görüntülere/metne çevir, böl, birleştir, döndür (DPI ve kalite ile)
+- **PDF'e çevir:** görüntü ve belgeler
+
+Pencere ilerlemeyi gösterir, **İptal** süren işi durdurur (yarım dosya kalmaz). Sonuçta çıktılar
+"Klasörde göster" ile açılabilir. Son kullanılan ayarlar hatırlanır; **Preset olarak kaydet…** aynı
+ayarları sağ tık menüsüne kalıcı girdi olarak ekler. Pencere iş sürerken kapatılırsa iş sürer ve
+bitince bildirim gelir.
+
 ## Ayarlar
 
 Sağ tık menüsünün en altındaki **Ayarlar…** ya da Başlat menüsündeki **Shock Convert Ayarları**

@@ -4,6 +4,7 @@
 mod batch;
 mod config;
 mod ffmpeg;
+mod job;
 mod log;
 mod menu;
 mod pdf;
@@ -11,7 +12,7 @@ mod platform;
 mod plugins;
 mod presets;
 mod run;
-mod settings_ui;
+mod ui;
 
 use std::path::PathBuf;
 
@@ -52,6 +53,17 @@ enum Command {
     Install,
     /// Menüyü ve kurulumu tamamen kaldırır
     Uninstall,
+    /// Seçilen dosyalar için özel dönüştürme penceresini açar (tek seferlik ayarlar)
+    Custom {
+        #[arg(required = true, num_args = 1..)]
+        files: Vec<PathBuf>,
+        /// Pencere açmadan adresi yazar (sorun giderme)
+        #[arg(long, hide = true)]
+        print_url: bool,
+    },
+    /// Sağ tık menüsünün "Özel dönüştür…" komutu: çoklu seçimi tek pencerede toplar
+    #[command(hide = true)]
+    ShellCustom { file: PathBuf },
     /// Ayarlar penceresini açar
     Settings {
         /// Pencere açmadan adresi yazar (sorun giderme)
@@ -121,7 +133,9 @@ fn main() {
         Command::Unregister => finish("Menü kaldırıldı.", platform::unregister()),
         Command::Install => finish("Shock Convert kuruldu.", platform::install()),
         Command::Uninstall => finish("Shock Convert kaldırıldı.", platform::uninstall()),
-        Command::Settings { print_url } => match settings_ui::open(print_url) {
+        Command::Custom { files, print_url } => window(ui::custom::open(files, print_url)),
+        Command::ShellCustom { file } => shell_custom(&file),
+        Command::Settings { print_url } => match ui::settings::open(print_url) {
             Ok(()) => 0,
             Err(e) => {
                 log::line(&format!("ayarlar: {e}"));
@@ -166,6 +180,39 @@ fn finish(ok_message: &str, result: Result<(), String>) -> i32 {
             1
         }
     }
+}
+
+fn window(result: Result<(), String>) -> i32 {
+    match result {
+        Ok(()) => 0,
+        Err(e) => {
+            log::line(&format!("pencere: {e}"));
+            platform::notify("Shock Convert", &e);
+            1
+        }
+    }
+}
+
+/// Çoklu seçimdeki dosyalar kuyrukta toplanır; pencere kuyruk serbest kaldıktan sonra açılır,
+/// böylece pencere açıkken yapılan yeni bir sağ tık kendi penceresini açabilir.
+fn shell_custom(file: &std::path::Path) -> i32 {
+    let mut files = Vec::new();
+    let collected = batch::submit(
+        "custom",
+        file,
+        std::time::Duration::from_millis(400),
+        |batch| {
+            files.extend(batch);
+        },
+    );
+    if let Err(e) = collected {
+        log::line(&format!("kuyruk hatası: {e}"));
+        files = vec![file.to_path_buf()];
+    }
+    if files.is_empty() {
+        return 0; // Takipçi: dosyamızı lider aldı.
+    }
+    window(ui::custom::open(files, false))
 }
 
 /// Explorer çoklu seçimde her dosya için ayrı süreç başlatır; burada tek işe birleştirilir.

@@ -88,13 +88,13 @@ pub fn run_entry(entry: &Entry, files: &[PathBuf]) -> Report {
     report.into_inner().unwrap()
 }
 
-enum Outcome {
+pub(crate) enum Outcome {
     Done(PathBuf),
     Skipped,
     Failed(String),
 }
 
-fn process(entry: &Entry, file: &Path) -> Outcome {
+pub(crate) fn process(entry: &Entry, file: &Path) -> Outcome {
     let ext = file
         .extension()
         .map(|e| e.to_string_lossy().into_owned())

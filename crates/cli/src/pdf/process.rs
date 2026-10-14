@@ -20,6 +20,11 @@ pub fn run(cmd: &mut Command, limit: Duration) -> Result<bool, String> {
     loop {
         match child.try_wait() {
             Ok(Some(status)) => return Ok(status.success()),
+            Ok(None) if crate::job::cancelled() => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(crate::job::CANCELLED.into());
+            }
             Ok(None) if start.elapsed() > limit => {
                 let _ = child.kill();
                 let _ = child.wait();
