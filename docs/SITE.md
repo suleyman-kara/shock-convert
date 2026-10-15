@@ -15,7 +15,9 @@ npm run build    # site/dist
 Metinler `site/src/i18n.ts` içinde (Türkçe ve İngilizce). Dil, tarayıcı diline göre seçilir; üst
 menüdeki TR/EN düğmesiyle değiştirilir.
 
-## Alt alan adı bağlama (ör. `shockconvert.suleymankara.com`)
+## Alan adı
+
+Site https://shockconvert.suleymankara.com adresinde yayında. Bağlarken izlenen adımlar:
 
 1. **DNS:** alan adınızın DNS panelinde bir `CNAME` kaydı ekleyin:
    `shockconvert` → `suleyman-kara.github.io` (sonunda repo adı **olmadan**).
@@ -29,6 +31,6 @@ menüdeki TR/EN düğmesiyle değiştirilir.
 
 > **Microsoft Store uyarısı:** Özel alan adı bağlandığı anda
 > `suleyman-kara.github.io/shock-convert/...` adresleri yeni alan adına **yönlendirilir**. Store'un
-> paket bağlantısı yönlendirme kabul etmediği için Partner Center'daki Package URL'yi
-> `https://shockconvert.suleymankara.com/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe` olarak
-> güncelleyin.
+> paket bağlantısı yönlendirme kabul etmediği için Partner Center'daki Package URL
+> `https://shockconvert.suleymankara.com/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe` biçiminde
+> olmalı. `publish-download` iş akışının özeti bu bağlantıyı yazar.

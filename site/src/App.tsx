@@ -222,6 +222,11 @@ export default function App() {
                 <div className="notice">
                   <strong>{t.download.smartTitle}</strong>
                   <p>{t.download.smart}</p>
+                  <p className="signing">
+                    Free code signing provided by <a href="https://about.signpath.io/">SignPath.io</a>,
+                    certificate by <a href="https://signpath.org/">SignPath Foundation</a>
+                    {t.download.signingStatus}
+                  </p>
                 </div>
               </div>
             </div>
