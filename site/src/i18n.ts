@@ -50,6 +50,7 @@ const tr = {
     ],
     smartTitle: "\"Windows bilgisayarınızı korudu\" uyarısı",
     smart: "Kod imzalama başvurumuz sürerken Windows SmartScreen bu uyarıyı gösterebilir. \"Ek bilgi\" ▸ \"Yine de çalıştır\" ile devam edebilirsiniz. Dosyanın özetini yukarıdaki SHA-256 değeriyle karşılaştırabilirsiniz.",
+    signingStatus: " (başvuru aşamasında).",
   },
   trust: {
     title: "Gizlilik ve açık kaynak",
@@ -122,6 +123,7 @@ const en: Dict = {
     ],
     smartTitle: "\"Windows protected your PC\" warning",
     smart: "While our code signing application is in progress, Windows SmartScreen may show this warning. Choose \"More info\" ▸ \"Run anyway\" to continue. You can compare the file against the SHA-256 checksum above.",
+    signingStatus: " (application in progress).",
   },
   trust: {
     title: "Privacy and open source",

@@ -2,14 +2,15 @@
 #
 # Neden: GitHub release indirme bağlantıları 302 ile geçici bir depolama adresine yönlendirir.
 # Microsoft Store (EXE yolu) ise yönlendirme yapmayan, sürüme özel ve değişmeyen bir bağlantı ister:
-#   https://<sahip>.github.io/<repo>/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe
+#   https://shockconvert.suleymankara.com/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe
 #
 # Tetikleme: "build" iş akışı bir sürüm yayınlayınca onu çağırır (workflow_call), ya da elle
 # (eski bir sürümü yayınlamak için) "Run workflow" ile etiket girilerek.
 # Bir sürümün dosyası bir kez yayınlandıktan sonra değiştirilmez (Store bağlantısı sabit kalmalı).
 #
 # Bir kerelik ayar: Settings → Pages → Source: "Deploy from a branch", Branch: gh-pages / (root).
-# Not: Pages'e özel alan adı bağlanırsa github.io adresleri yönlenir; Store'a o alan adındaki bağlantı verilmeli.
+# Özel alan adı bağlı olduğu için github.io adresleri ona yönlenir; Store'a alan adındaki bağlantı
+# verilmeli. Özet, gh-pages dalındaki CNAME dosyasından doğru adresi yazar.
 
 name: publish-download
 
@@ -88,4 +89,9 @@ jobs:
           fi
           file=$(cd "download/${TAG}" && ls shock-convert-setup-*.exe)
           echo "Store için paket bağlantısı:" >> "$GITHUB_STEP_SUMMARY"
-          echo "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/download/${TAG}/${file}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -s CNAME ]; then
+            base="https://$(tr -d '[:space:]' < CNAME)"
+          else
+            base="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          fi
+          echo "${base}/download/${TAG}/${file}" >> "$GITHUB_STEP_SUMMARY"

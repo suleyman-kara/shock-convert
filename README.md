@@ -2,7 +2,7 @@
 
 Windows'ta görüntü, ses, video ve belge dosyalarına **sağ tıklayıp** istediğiniz formata çeviren küçük ve hızlı bir araç.
 
-**Web sitesi ve indirme:** https://suleyman-kara.github.io/shock-convert/
+**Web sitesi ve indirme:** https://shockconvert.suleymankara.com/
 
 ```
 foto.png     ──sağ tık──▶  Shock Convert ▸ JPG  ──▶  foto.jpg     (aynı klasörde)
