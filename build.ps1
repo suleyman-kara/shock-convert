@@ -17,10 +17,6 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
 cargo build --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-# PDF -> goruntu/metin icin PDFium (pdfium.dll); exe'nin yanina da kopyalanir ki dogrudan calissin.
-& (Join-Path $PSScriptRoot "scripts\fetch-pdfium.ps1")
-Copy-Item "third_party\pdfium\win-x64\bin\pdfium.dll" "target\release\pdfium.dll" -Force
-
 $version = (Select-String -Path crates/cli/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
 $candidates = @(
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",

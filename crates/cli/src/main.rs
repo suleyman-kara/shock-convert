@@ -3,11 +3,9 @@
 
 mod batch;
 mod config;
-mod ffmpeg;
 mod job;
 mod log;
 mod menu;
-mod pdf;
 mod platform;
 mod plugins;
 mod presets;
@@ -22,7 +20,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "shock-convert",
     version,
-    about = "Sağ tıkla görüntü, ses ve video dönüştürücü"
+    about = "Right-click image converter"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -31,42 +29,42 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Dosyaları bir menü girdisiyle işler (örn. `run png a.jpg b.webp`)
+    /// Converts files with a menu entry (e.g. `run png a.jpg b.webp`)
     Run {
-        /// Menü girdisi kimliği (`list` ile görülür)
+        /// Menu entry ID (see `list`)
         id: String,
         #[arg(required = true, num_args = 1..)]
         files: Vec<PathBuf>,
     },
-    /// Sağ tık menüsünün kullandığı komut: tek dosya alır, eşzamanlı çağrıları birleştirir
+    /// Used by the right-click menu: takes one file and merges concurrent calls
     #[command(hide = true)]
     ShellRun { id: String, file: PathBuf },
-    /// Kullanılabilir menü girdilerini listeler
+    /// Lists the available menu entries
     List,
-    /// Preset dosyasının (presets.toml) yolunu yazar; yoksa açıklamalı örneği oluşturur
+    /// Prints the path of presets.toml, creating a commented sample if missing
     Presets,
-    /// Sağ tık menüsünü kayıt defterine yazar (eklentileri yeniden tarar)
+    /// Writes the right-click menu to the registry (rescans plugins)
     Register,
-    /// Sağ tık menüsünü kayıt defterinden siler
+    /// Removes the right-click menu from the registry
     Unregister,
-    /// Kendini kalıcı konuma kurar ve menüyü kaydeder
+    /// Installs itself to a permanent location and registers the menu
     Install,
-    /// Menüyü ve kurulumu tamamen kaldırır
+    /// Removes the menu and the installation
     Uninstall,
-    /// Seçilen dosyalar için özel dönüştürme penceresini açar (tek seferlik ayarlar)
+    /// Opens the custom convert window for the given files (one-off settings)
     Custom {
         #[arg(required = true, num_args = 1..)]
         files: Vec<PathBuf>,
-        /// Pencere açmadan adresi yazar (sorun giderme)
+        /// Prints the address instead of opening a window (troubleshooting)
         #[arg(long, hide = true)]
         print_url: bool,
     },
-    /// Sağ tık menüsünün "Özel dönüştür…" komutu: çoklu seçimi tek pencerede toplar
+    /// Used by the menu's "Custom convert…" item: gathers a multi-selection into one window
     #[command(hide = true)]
     ShellCustom { file: PathBuf },
-    /// Ayarlar penceresini açar
+    /// Opens the settings window
     Settings {
-        /// Pencere açmadan adresi yazar (sorun giderme)
+        /// Prints the address instead of opening a window (troubleshooting)
         #[arg(long, hide = true)]
         print_url: bool,
     },
@@ -85,8 +83,8 @@ pub(crate) fn entries_for(plugins_dir: &std::path::Path) -> Vec<menu::Entry> {
     let (plugins, plugin_warnings) = plugins::load_all(plugins_dir);
     warnings.extend(plugin_warnings);
     for w in warnings {
-        log::line(&format!("uyarı: {w}"));
-        eprintln!("uyarı: {w}");
+        log::line(&format!("warning: {w}"));
+        eprintln!("warning: {w}");
     }
     menu::build(&settings, &plugins)
 }
@@ -98,7 +96,7 @@ pub(crate) fn load_entries() -> Vec<menu::Entry> {
 fn main() {
     platform::init_console();
     log::line(&format!(
-        "başladı: {:?}",
+        "started: {:?}",
         std::env::args().collect::<Vec<_>>()
     ));
     std::panic::set_hook(Box::new(|info| log::line(&format!("PANIC: {info}"))));
@@ -108,11 +106,11 @@ fn main() {
         Err(e) => {
             // Sağ tıkla başlatıldığında konsol olmadığı için hatayı günlüğe ve bildirime de yaz.
             let text = e.to_string();
-            log::line(&format!("argüman hatası: {text}"));
+            log::line(&format!("argument error: {text}"));
             if e.use_stderr() {
                 platform::notify(
                     "Shock Convert",
-                    text.lines().next().unwrap_or("argüman hatası"),
+                    text.lines().next().unwrap_or("argument error"),
                 );
             }
             e.exit()
@@ -129,16 +127,16 @@ fn main() {
             0
         }
         Command::Presets => finish_with(presets::ensure_sample().map(|p| p.display().to_string())),
-        Command::Register => finish("Menü kaydedildi.", register()),
-        Command::Unregister => finish("Menü kaldırıldı.", platform::unregister()),
-        Command::Install => finish("Shock Convert kuruldu.", platform::install()),
-        Command::Uninstall => finish("Shock Convert kaldırıldı.", platform::uninstall()),
+        Command::Register => finish("Menu registered.", register()),
+        Command::Unregister => finish("Menu removed.", platform::unregister()),
+        Command::Install => finish("Shock Convert installed.", platform::install()),
+        Command::Uninstall => finish("Shock Convert uninstalled.", platform::uninstall()),
         Command::Custom { files, print_url } => window(ui::custom::open(files, print_url)),
         Command::ShellCustom { file } => shell_custom(&file),
         Command::Settings { print_url } => match ui::settings::open(print_url) {
             Ok(()) => 0,
             Err(e) => {
-                log::line(&format!("ayarlar: {e}"));
+                log::line(&format!("settings: {e}"));
                 platform::notify("Shock Convert", &e);
                 1
             }
@@ -151,7 +149,7 @@ fn register() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     // İlk kayıtta açıklamalı örnek presets.toml bırak (varsa dokunma).
     if let Err(e) = presets::ensure_sample() {
-        log::line(&format!("presets.toml örneği yazılamadı: {e}"));
+        log::line(&format!("could not write sample presets.toml: {e}"));
     }
     platform::register(&exe, &load_entries())
 }
@@ -163,7 +161,7 @@ fn finish_with(result: std::io::Result<String>) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("hata: {e}");
+            eprintln!("error: {e}");
             1
         }
     }
@@ -176,7 +174,7 @@ fn finish(ok_message: &str, result: Result<(), String>) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("hata: {e}");
+            eprintln!("error: {e}");
             1
         }
     }
@@ -186,7 +184,7 @@ fn window(result: Result<(), String>) -> i32 {
     match result {
         Ok(()) => 0,
         Err(e) => {
-            log::line(&format!("pencere: {e}"));
+            log::line(&format!("window: {e}"));
             platform::notify("Shock Convert", &e);
             1
         }
@@ -206,7 +204,7 @@ fn shell_custom(file: &std::path::Path) -> i32 {
         },
     );
     if let Err(e) = collected {
-        log::line(&format!("kuyruk hatası: {e}"));
+        log::line(&format!("queue error: {e}"));
         files = vec![file.to_path_buf()];
     }
     if files.is_empty() {
@@ -222,7 +220,7 @@ fn shell_run(id: &str, file: &std::path::Path) -> i32 {
         code |= run(id, &files);
     });
     if let Err(e) = result {
-        log::line(&format!("kuyruk hatası: {e}"));
+        log::line(&format!("queue error: {e}"));
         // Kuyruk kullanılamadıysa en azından bu dosyayı doğrudan işle.
         return run(id, &[file.to_path_buf()]);
     }
@@ -230,34 +228,16 @@ fn shell_run(id: &str, file: &std::path::Path) -> i32 {
 }
 
 fn run(id: &str, files: &[PathBuf]) -> i32 {
-    log::line(&format!("run id={id} dosya={files:?}"));
+    log::line(&format!("run id={id} files={files:?}"));
     let entries = load_entries();
     let Some(entry) = entries.iter().find(|e| e.id.eq_ignore_ascii_case(id)) else {
-        log::line(&format!("bilinmeyen menü girdisi: {id}"));
-        platform::notify("Shock Convert", &format!("Bilinmeyen menü girdisi: {id}"));
+        log::line(&format!("unknown menu entry: {id}"));
+        platform::notify("Shock Convert", &format!("Unknown menu entry: {id}"));
         return 2;
     };
-    let slow = match entry.action {
-        menu::Action::Ffmpeg(_) => true,
-        menu::Action::Pdf(_) => files.iter().any(|f| {
-            pdf::is_slow(
-                &f.extension()
-                    .map(|e| e.to_string_lossy().into_owned())
-                    .unwrap_or_default(),
-            )
-        }),
-        _ => false,
-    };
-    if slow {
-        // Ses/video ve belge→PDF uzun sürebilir; başladığını hemen göster.
-        platform::notify(
-            "Shock Convert",
-            &format!("{} dosya → {} dönüştürülüyor…", files.len(), entry.label),
-        );
-    }
     let report = run::run_entry(entry, files);
     let summary = report.summary(entry);
-    log::line(&format!("sonuç: {summary}"));
+    log::line(&format!("result: {summary}"));
     if !summary.is_empty() {
         platform::notify("Shock Convert", &summary);
         println!("{summary}");

@@ -2,4 +2,3 @@
 /dist
 *.exe
 __pycache__/
-/third_party/pdfium/

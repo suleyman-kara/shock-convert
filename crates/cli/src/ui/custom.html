@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shock Convert</title>
+<title>Custom convert</title>
 <style>
 :root {
   --bg: #f5f6f8; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
@@ -26,7 +26,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
 header h1 { font-size: 16px; margin: 0; font-weight: 600; }
 header .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; color: var(--accent-text); font-weight: 700; }
-header .spacer { flex: 1; }
 main { overflow: auto; padding: 20px 24px 32px; }
 .wrap { max-width: 680px; margin: 0 auto; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
@@ -36,10 +35,6 @@ main { overflow: auto; padding: 20px 24px 32px; }
 .files li { display: flex; gap: 8px; padding: 2px 0; }
 .files .ext { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 12px; min-width: 42px; }
 .files li.off { color: var(--muted); text-decoration: line-through; }
-.seg { display: flex; flex-wrap: wrap; gap: 6px; }
-.seg button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
-.seg button .n { opacity: .75; font-size: 12px; margin-left: 4px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .field { display: block; }
 .field > span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
@@ -47,15 +42,12 @@ main { overflow: auto; padding: 20px 24px 32px; }
 input[type=text], input[type=number], select { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 input[type=color] { width: 56px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
-label.check { display: flex; gap: 8px; align-items: center; cursor: pointer; }
-label.check input { accent-color: var(--accent); }
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 8px; cursor: pointer; }
 .btn:hover { border-color: var(--muted); }
 .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
 .btn.small { padding: 3px 10px; font-size: 13px; }
 .btn:disabled { opacity: .45; cursor: default; }
-.warn { color: var(--warn); font-size: 13px; }
 .bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
 .big { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
@@ -80,12 +72,7 @@ dialog h3 { margin: 0 0 12px; }
 <div class="app">
   <header>
     <div class="logo" aria-hidden="true">S</div>
-    <h1 id="title"></h1>
-    <span class="spacer"></span>
-    <select id="lang" aria-label="Dil / Language" style="width:auto">
-      <option value="tr">Türkçe</option>
-      <option value="en">English</option>
-    </select>
+    <h1>Custom convert</h1>
   </header>
   <main><div class="wrap">
     <!-- Ayarlar -->
@@ -95,62 +82,22 @@ dialog h3 { margin: 0 0 12px; }
         <ul class="files" id="files"></ul>
         <button class="btn small" id="more" type="button" hidden></button>
       </div>
-      <div class="card">
-        <h3 data-t="what"></h3>
-        <div class="seg" id="kinds" role="group"></div>
-      </div>
-
-      <div class="card" id="o_image" hidden>
-        <div class="grid2">
-          <label class="field"><span data-t="format"></span><select id="i_format"></select></label>
-          <label class="field" id="w_i_quality"><span><span data-t="quality"></span>: <b id="i_quality_v"></b></span><input type="range" id="i_quality" min="10" max="100" step="5"></label>
-          <label class="field"><span data-t="max_w"></span><input type="number" id="i_max_w" min="1" data-tp="original"></label>
-          <label class="field"><span data-t="max_h"></span><input type="number" id="i_max_h" min="1" data-tp="original"></label>
-          <label class="field"><span data-t="metadata"></span>
-            <select id="i_meta"><option value="" data-t="m_default"></option><option value="keep" data-t="m_keep"></option><option value="strip-location" data-t="m_strip_location"></option><option value="strip" data-t="m_strip"></option></select>
-          </label>
-          <label class="field" id="w_i_bg"><span data-t="bg"></span><input type="color" id="i_bg" value="#ffffff"></label>
-        </div>
-      </div>
-
-      <div class="card" id="o_media" hidden>
-        <p class="warn" id="no_ffmpeg" hidden data-t="no_ffmpeg"></p>
-        <div class="grid2">
-          <label class="field"><span data-t="format"></span><select id="m_output"></select></label>
-          <label class="field" id="w_m_level"><span data-t="level"></span>
-            <select id="m_level"><option value="high" data-t="l_high"></option><option value="normal" data-t="l_normal"></option><option value="small" data-t="l_small"></option></select>
-          </label>
-          <label class="field" id="w_m_height"><span data-t="height"></span>
-            <select id="m_height"><option value="" data-t="original"></option><option>2160</option><option>1440</option><option>1080</option><option>720</option><option>480</option><option>360</option></select>
-          </label>
-          <label class="field" id="w_m_kbps"><span data-t="kbps"></span>
-            <select id="m_kbps"><option>96</option><option>128</option><option>192</option><option>256</option><option>320</option></select>
-          </label>
-          <label class="field"><span data-t="start"></span><input type="text" id="m_start" placeholder="0:00" inputmode="decimal"></label>
-          <label class="field"><span data-t="end"></span><input type="text" id="m_end" data-tp="to_end" inputmode="decimal"></label>
-        </div>
-        <label class="check" id="w_m_noaudio" style="margin-top:10px"><input type="checkbox" id="m_noaudio"><span data-t="no_audio"></span></label>
-        <label class="field" style="margin-top:12px"><span data-t="extra"></span><input type="text" id="m_extra" spellcheck="false" placeholder="-metadata title=…"></label>
-      </div>
-
-      <div class="card" id="o_pdf" hidden>
-        <div class="grid2">
-          <label class="field"><span data-t="tool"></span><select id="p_tool"></select></label>
-          <label class="field" id="w_p_format"><span data-t="format"></span><select id="p_format"><option value="png">PNG</option><option value="jpg">JPG</option></select></label>
-          <label class="field" id="w_p_dpi"><span data-t="dpi"></span>
-            <select id="p_dpi"><option>72</option><option>100</option><option>150</option><option>200</option><option>300</option></select>
-          </label>
-          <label class="field" id="w_p_quality"><span><span data-t="quality"></span>: <b id="p_quality_v"></b></span><input type="range" id="p_quality" min="10" max="100" step="5"></label>
-          <label class="field" id="w_p_side"><span data-t="max_side"></span>
-            <select id="p_side"><option>1000</option><option>1600</option><option>2400</option></select>
-          </label>
-        </div>
-      </div>
-
-      <div class="card" id="o_topdf" hidden><p class="hint" data-t="topdf_hint" style="margin:0"></p></div>
 
       <div class="card">
-        <label class="field"><span><span data-t="suffix"></span> <span class="hint" id="suffix_hint"></span></span><input type="text" id="suffix"></label>
+        <div class="grid2">
+          <label class="field"><span>Format</span><select id="i_format"></select></label>
+          <label class="field" id="w_i_quality"><span>Quality: <b id="i_quality_v"></b></span><input type="range" id="i_quality" min="10" max="100" step="5"></label>
+          <label class="field"><span>Max width (px)</span><input type="number" id="i_max_w" min="1" placeholder="Original"></label>
+          <label class="field"><span>Max height (px)</span><input type="number" id="i_max_h" min="1" placeholder="Original"></label>
+          <label class="field"><span>Photo information (EXIF)</span>
+            <select id="i_meta"><option value="">As in settings</option><option value="keep">Keep</option><option value="strip-location">Remove location</option><option value="strip">Remove all</option></select>
+          </label>
+          <label class="field" id="w_i_bg"><span>Transparent area colour</span><input type="color" id="i_bg" value="#ffffff"></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="field"><span>File name suffix <span class="hint">(optional: photo-web.jpg)</span></span><input type="text" id="suffix"></label>
       </div>
     </div>
 
@@ -173,22 +120,22 @@ dialog h3 { margin: 0 0 12px; }
   </div></main>
   <footer>
     <span class="msg" id="msg" role="status" aria-live="polite"></span>
-    <button class="btn" id="save_preset" type="button" data-t="save_preset"></button>
-    <button class="btn" id="cancel" type="button" data-t="cancel" hidden></button>
-    <button class="btn" id="again" type="button" data-t="again" hidden></button>
-    <button class="btn" id="close" type="button" data-t="close" hidden></button>
-    <button class="btn primary" id="go" type="button" data-t="convert"></button>
+    <button class="btn" id="save_preset" type="button">Save as preset…</button>
+    <button class="btn" id="cancel" type="button" hidden>Cancel</button>
+    <button class="btn" id="again" type="button" hidden>New settings</button>
+    <button class="btn" id="close" type="button" hidden>Close</button>
+    <button class="btn primary" id="go" type="button">Convert</button>
   </footer>
 </div>
 
 <dialog id="dlg" aria-labelledby="dlg_title">
   <form method="dialog" id="dlg_form">
-    <h3 id="dlg_title" data-t="save_preset"></h3>
-    <label class="field"><span data-t="preset_name"></span><input type="text" id="dlg_name" required></label>
-    <p class="hint" data-t="preset_hint"></p>
+    <h3 id="dlg_title">Save as preset</h3>
+    <label class="field"><span>Name in the menu</span><input type="text" id="dlg_name" required></label>
+    <p class="hint">These settings are added to the right-click menu as a permanent entry.</p>
     <div class="actions">
-      <button class="btn" type="button" id="dlg_cancel" data-t="cancel_btn"></button>
-      <button class="btn primary" type="submit" data-t="save"></button>
+      <button class="btn" type="button" id="dlg_cancel">Cancel</button>
+      <button class="btn primary" type="submit">Save</button>
     </div>
   </form>
 </dialog>
@@ -196,60 +143,9 @@ dialog h3 { margin: 0 0 12px; }
 <script>
 "use strict";
 const TOKEN = new URLSearchParams(location.search).get("t") || "";
-const I18N = {
-  tr: {
-    title: "Özel dönüştür", files_n: (n) => `${n} dosya seçildi`, more: (n) => `+${n} dosya daha`, what: "Ne yapılsın?",
-    k_image: "Görüntü", k_media: "Ses / video", "k_pdf-tool": "PDF işlemi", "k_to-pdf": "PDF'e çevir",
-    format: "Biçim", quality: "Kalite", max_w: "En fazla genişlik (px)", max_h: "En fazla yükseklik (px)", original: "Özgün",
-    metadata: "Fotoğraf bilgileri (EXIF)", m_default: "Ayarlardaki gibi", m_keep: "Koru", m_strip_location: "Konumu sil", m_strip: "Hepsini sil",
-    bg: "Saydam alan rengi", level: "Kalite", l_high: "Yüksek kalite", l_normal: "Dengeli", l_small: "Küçük dosya",
-    height: "Çözünürlük (yükseklik)", kbps: "Ses kalitesi (kbit/sn)", start: "Başlangıç", end: "Bitiş", to_end: "sona kadar",
-    no_audio: "Sesi kaldır", extra: "Ek ffmpeg seçenekleri (isteğe bağlı)", audio: "Ses", video: "Video",
-    no_ffmpeg: "ffmpeg bulunamadı. Kurmak için: winget install Gyan.FFmpeg",
-    tool: "İşlem", dpi: "Çözünürlük (DPI)", max_side: "Resimlerin en uzun kenarı (px)",
-    tool_compress: "Küçült", "tool_to-images": "Görüntülere çevir", "tool_to-text": "Metne çevir", tool_split: "Sayfalara böl",
-    tool_merge: "Birleştir", "tool_rotate-right": "90° sağa döndür", "tool_rotate-left": "90° sola döndür", "tool_rotate-180": "180° döndür",
-    topdf_hint: "Görüntüler ve belgeler PDF'e çevrilir. PDF yöntemi Ayarlar'dan seçilir.",
-    suffix: "Dosya adı eki", suffix_hint: (ex) => `(isteğe bağlı: ${ex})`,
-    convert: "Dönüştür", cancel: "İptal", again: "Yeni ayarlar", close: "Kapat", save_preset: "Preset olarak kaydet…",
-    preset_name: "Menüde görünecek ad", preset_hint: "Bu ayarlar sağ tık menüsüne kalıcı bir girdi olarak eklenir.", cancel_btn: "Vazgeç", save: "Kaydet",
-    preset_saved: "Preset kaydedildi; menüde görünüyor.", preset_saved_nomenu: "Preset kaydedildi.",
-    running: "Dönüştürülüyor…", file_of: (i, n) => `${i} / ${n}`, cancelling: "İptal ediliyor…",
-    done_title: (d, n) => `${d} / ${n} dosya dönüştürüldü`, cancelled: "İptal edildi", failed_n: (n) => `${n} hata`, skipped_n: (n) => `${n} dosya bu işleme uymadığı için atlandı`,
-    reveal: "Klasörde göster", lost: "Bağlantı kesildi.", error: "Hata:",
-    none_apply: "Seçilen dosyalar için yapılabilecek bir dönüştürme yok.",
-  },
-  en: {
-    title: "Custom convert", files_n: (n) => `${n} file${n === 1 ? "" : "s"} selected`, more: (n) => `+${n} more`, what: "What should happen?",
-    k_image: "Image", k_media: "Audio / video", "k_pdf-tool": "PDF operation", "k_to-pdf": "Convert to PDF",
-    format: "Format", quality: "Quality", max_w: "Max width (px)", max_h: "Max height (px)", original: "Original",
-    metadata: "Photo information (EXIF)", m_default: "As in settings", m_keep: "Keep", m_strip_location: "Remove location", m_strip: "Remove all",
-    bg: "Transparent area colour", level: "Quality", l_high: "High quality", l_normal: "Balanced", l_small: "Small file",
-    height: "Resolution (height)", kbps: "Audio quality (kbit/s)", start: "Start", end: "End", to_end: "to the end",
-    no_audio: "Remove audio", extra: "Extra ffmpeg options (optional)", audio: "Audio", video: "Video",
-    no_ffmpeg: "ffmpeg not found. To install: winget install Gyan.FFmpeg",
-    tool: "Operation", dpi: "Resolution (DPI)", max_side: "Longest image side (px)",
-    tool_compress: "Compress", "tool_to-images": "Convert to images", "tool_to-text": "Convert to text", tool_split: "Split into pages",
-    tool_merge: "Merge", "tool_rotate-right": "Rotate 90° right", "tool_rotate-left": "Rotate 90° left", "tool_rotate-180": "Rotate 180°",
-    topdf_hint: "Images and documents are converted to PDF. The PDF method is chosen in Settings.",
-    suffix: "File name suffix", suffix_hint: (ex) => `(optional: ${ex})`,
-    convert: "Convert", cancel: "Cancel", again: "New settings", close: "Close", save_preset: "Save as preset…",
-    preset_name: "Name in the menu", preset_hint: "These settings are added to the right-click menu as a permanent entry.", cancel_btn: "Cancel", save: "Save",
-    preset_saved: "Preset saved; it is in the menu.", preset_saved_nomenu: "Preset saved.",
-    running: "Converting…", file_of: (i, n) => `${i} / ${n}`, cancelling: "Cancelling…",
-    done_title: (d, n) => `${d} of ${n} files converted`, cancelled: "Cancelled", failed_n: (n) => `${n} error${n === 1 ? "" : "s"}`, skipped_n: (n) => `${n} file${n === 1 ? "" : "s"} skipped (not suitable for this operation)`,
-    reveal: "Show in folder", lost: "Connection lost.", error: "Error:",
-    none_apply: "There is no conversion available for the selected files.",
-  },
-};
-const PDF_TOOLS = ["compress", "to-images", "to-text", "split", "merge", "rotate-right", "rotate-left", "rotate-180"];
-
-let lang = "tr";
-try { lang = localStorage.getItem("lang") || (navigator.language || "tr").slice(0, 2); } catch (_) {}
-if (!I18N[lang]) lang = "en";
-const t = (k, ...a) => { const v = I18N[lang][k] ?? I18N.en[k] ?? k; return typeof v === "function" ? v(...a) : v; };
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const $ = (id) => document.getElementById(id);
-let S = null, kind = null, showAll = false, polling = null;
+let S = null, showAll = false, polling = null;
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -274,119 +170,48 @@ async function api(path, body) {
 
 function message(text, cls = "") { const m = $("msg"); m.textContent = text; m.className = "msg " + cls; }
 
-function translate() {
-  document.documentElement.lang = lang;
-  document.title = t("title");
-  $("title").textContent = t("title");
-  for (const n of document.querySelectorAll("[data-t]")) n.textContent = t(n.dataset.t);
-  for (const n of document.querySelectorAll("[data-tp]")) n.placeholder = t(n.dataset.tp);
-  $("lang").value = lang;
-}
-
-// ---- Dosyalar ve türler ----
-const applies = (f) => f.kinds.includes(kind);
-function availableKinds() {
-  const order = ["image", "media", "pdf-tool", "to-pdf"];
-  return order.filter((k) => S.files.some((f) => f.kinds.includes(k)));
-}
-
+// ---- Dosyalar ----
 function renderFiles() {
   const list = $("files");
   const shown = showAll ? S.files : S.files.slice(0, 6);
-  list.replaceChildren(...shown.map((f) => el("li", { class: kind && !applies(f) ? "off" : null },
+  list.replaceChildren(...shown.map((f) => el("li", { class: f.image ? null : "off" },
     el("span", { class: "ext", text: f.ext || "—" }), el("span", { text: f.name }))));
-  $("files_title").textContent = t("files_n", S.files.length);
+  $("files_title").textContent = plural(S.files.length, "file") + " selected";
   const rest = S.files.length - shown.length;
   $("more").hidden = rest <= 0;
-  $("more").textContent = t("more", rest);
-}
-
-function renderKinds() {
-  const kinds = availableKinds();
-  $("kinds").replaceChildren(...kinds.map((k) => {
-    const n = S.files.filter((f) => f.kinds.includes(k)).length;
-    return el("button", { type: "button", "aria-pressed": String(k === kind), onclick: () => { kind = k; renderAll(); } },
-      t("k_" + k), n < S.files.length ? el("span", { class: "n", text: `${n}/${S.files.length}` }) : null);
-  }));
-  for (const [k, id] of [["image", "o_image"], ["media", "o_media"], ["pdf-tool", "o_pdf"], ["to-pdf", "o_topdf"]]) $(id).hidden = kind !== k;
-  $("go").disabled = !kind;
-  if (!kinds.length) message(t("none_apply"), "bad");
-}
-
-function fillSelect(sel, items, value) {
-  sel.replaceChildren(...items.map((it) => it.group
-    ? el("optgroup", { label: it.group }, it.items.map(([v, l]) => el("option", { value: v, text: l })))
-    : el("option", { value: it[0], text: it[1] })));
-  if (value !== undefined && [...sel.querySelectorAll("option")].some((o) => o.value === value)) sel.value = value;
+  $("more").textContent = `+${rest} more`;
+  const images = S.files.filter((f) => f.image).length;
+  $("go").disabled = images === 0;
+  if (images === 0) message("None of the selected files is an image.", "bad");
 }
 
 function setupOptions(last) {
   const L = last || {};
-  fillSelect($("i_format"), S.formats.map((f) => [f.ext, f.label]), L.kind === "image" ? L.format : "jpg");
-  $("i_quality").value = L.kind === "image" && L.quality ? L.quality : 85;
-  $("i_max_w").value = L.kind === "image" ? (L.max_width ?? "") : "";
-  $("i_max_h").value = L.kind === "image" ? (L.max_height ?? "") : "";
-  $("i_meta").value = L.kind === "image" ? (L.metadata || "") : "";
-  if (L.kind === "image" && L.background) $("i_bg").value = L.background;
-
-  const allAudio = S.files.filter((f) => f.kinds.includes("media")).every((f) => S.audio_in.includes(f.ext));
-  const outs = [{ group: t("audio"), items: S.audio_out.map((x) => [x, x.toUpperCase()]) }];
-  if (!allAudio) outs.unshift({ group: t("video"), items: S.video_out.map((x) => [x, x.toUpperCase()]) });
-  fillSelect($("m_output"), outs, L.kind === "media" ? L.output : (allAudio ? "mp3" : "mp4"));
-  $("m_level").value = L.kind === "media" && L.level ? L.level : "normal";
-  $("m_height").value = L.kind === "media" && L.height ? String(L.height) : "";
-  $("m_kbps").value = String(L.kind === "media" && L.audio_kbps ? L.audio_kbps : 192);
-  $("m_noaudio").checked = L.kind === "media" && !!L.no_audio;
-  $("m_extra").value = L.kind === "media" ? (L.extra || "") : "";
-  $("no_ffmpeg").hidden = S.ffmpeg;
-
-  fillSelect($("p_tool"), PDF_TOOLS.map((x) => [x, t("tool_" + x)]), L.kind === "pdf-tool" ? L.tool : "compress");
-  $("p_format").value = L.kind === "pdf-tool" && L.format === "jpg" ? "jpg" : "png";
-  $("p_dpi").value = String(L.kind === "pdf-tool" && L.dpi ? L.dpi : 150);
-  $("p_quality").value = L.kind === "pdf-tool" && L.quality ? L.quality : 70;
-  $("p_side").value = String(L.kind === "pdf-tool" && L.max_width ? L.max_width : 1600);
-  if (L.kind === kind) $("suffix").value = L.suffix || "";
+  $("i_format").replaceChildren(...S.formats.map((f) => el("option", { value: f.ext, text: f.label })));
+  $("i_format").value = S.formats.some((f) => f.ext === L.format) ? L.format : "jpg";
+  $("i_quality").value = L.quality || 85;
+  $("i_max_w").value = L.max_width ?? "";
+  $("i_max_h").value = L.max_height ?? "";
+  $("i_meta").value = L.metadata || "";
+  if (L.background) $("i_bg").value = L.background;
+  $("suffix").value = L.suffix || "";
 }
 
 function updateVisibility() {
-  const fmt = $("i_format").value;
-  $("w_i_quality").hidden = fmt !== "jpg";
-  $("w_i_bg").hidden = fmt !== "jpg";
+  const jpg = $("i_format").value === "jpg";
+  $("w_i_quality").hidden = !jpg;
+  $("w_i_bg").hidden = !jpg;
   $("i_quality_v").textContent = $("i_quality").value;
-  const out = $("m_output").value, video = S.video_out.includes(out), lossless = ["flac", "wav"].includes(out);
-  $("w_m_level").hidden = !video || out === "gif";
-  $("w_m_height").hidden = !video;
-  $("w_m_kbps").hidden = lossless || out === "gif" || (video && $("m_noaudio").checked);
-  $("w_m_noaudio").hidden = !video || out === "gif";
-  const tool = $("p_tool").value;
-  $("w_p_format").hidden = tool !== "to-images";
-  $("w_p_dpi").hidden = tool !== "to-images";
-  $("w_p_quality").hidden = !(tool === "compress" || (tool === "to-images" && $("p_format").value === "jpg"));
-  $("w_p_side").hidden = tool !== "compress";
-  $("p_quality_v").textContent = $("p_quality").value;
-  const ex = { image: "foto-web.jpg", media: "video-720p.mp4", "pdf-tool": "belge-küçük.pdf", "to-pdf": "belge-ek.pdf" }[kind] || "";
-  $("suffix_hint").textContent = ex ? t("suffix_hint", ex) : "";
-  $("save_preset").hidden = !kind || kind === "to-pdf";
 }
 
 function spec() {
   const num = (id) => { const v = $(id).value.trim(); return v === "" ? null : Number(v); };
-  const s = { kind, suffix: $("suffix").value.trim() };
-  if (kind === "image") Object.assign(s, {
-    format: $("i_format").value, quality: $("i_format").value === "jpg" ? num("i_quality") : null,
+  const jpg = $("i_format").value === "jpg";
+  return {
+    suffix: $("suffix").value.trim(), format: $("i_format").value, quality: jpg ? num("i_quality") : null,
     max_width: num("i_max_w"), max_height: num("i_max_h"), metadata: $("i_meta").value,
-    background: $("i_format").value === "jpg" && $("i_bg").value.toLowerCase() !== "#ffffff" ? $("i_bg").value : "",
-  });
-  if (kind === "media") Object.assign(s, {
-    output: $("m_output").value, level: $("m_level").value, height: num("m_height"), audio_kbps: num("m_kbps"),
-    no_audio: $("m_noaudio").checked, start: $("m_start").value.trim(), end: $("m_end").value.trim(), extra: $("m_extra").value,
-  });
-  if (kind === "pdf-tool") {
-    const tool = $("p_tool").value;
-    Object.assign(s, { tool, format: $("p_format").value, dpi: tool === "to-images" ? num("p_dpi") : null,
-      quality: $("w_p_quality").hidden ? null : num("p_quality"), max_width: tool === "compress" ? num("p_side") : null });
-  }
-  return s;
+    background: jpg && $("i_bg").value.toLowerCase() !== "#ffffff" ? $("i_bg").value : "",
+  };
 }
 
 // ---- Çalıştırma ----
@@ -395,7 +220,7 @@ function view(name) {
   $("progress").hidden = name !== "progress";
   $("result").hidden = name !== "result";
   $("go").hidden = name !== "setup";
-  $("save_preset").hidden = name !== "setup" || !kind || kind === "to-pdf";
+  $("save_preset").hidden = name !== "setup";
   $("cancel").hidden = name !== "progress";
   $("again").hidden = name !== "result";
   $("close").hidden = name !== "result";
@@ -404,10 +229,10 @@ function view(name) {
 async function start() {
   message("");
   const r = await api("/api/run", spec());
-  if (!r.ok) { message(t("error") + " " + (r.data && r.data.error || ""), "bad"); return; }
+  if (!r.ok) { message("Error: " + (r.data && r.data.error || ""), "bad"); return; }
   $("r_title").textContent = "";
   $("r_list").replaceChildren();
-  $("p_title").textContent = t("running");
+  $("p_title").textContent = "Converting…";
   $("p_current").textContent = "";
   $("p_bar").firstElementChild.style.width = "0";
   view("progress");
@@ -421,8 +246,8 @@ async function poll() {
   if (!r.ok) { polling = setTimeout(poll, 1000); return; }
   const j = r.data;
   if (j.finished) { showResult(j); return; }
-  const frac = j.total ? (j.index + (j.progress ?? 0)) / j.total : 0;
-  $("p_title").textContent = t("running") + "  " + t("file_of", Math.min(j.index + 1, j.total), j.total);
+  const frac = j.total ? j.index / j.total : 0;
+  $("p_title").textContent = `Converting…  ${Math.min(j.index + 1, j.total)} / ${j.total}`;
   $("p_bar").firstElementChild.style.width = (frac * 100).toFixed(1) + "%";
   $("p_bar").setAttribute("aria-valuenow", Math.round(frac * 100));
   $("p_current").textContent = j.current || "";
@@ -431,25 +256,24 @@ async function poll() {
 
 function showResult(j) {
   view("result");
-  $("r_title").textContent = j.cancelled ? t("cancelled") + " — " + t("done_title", j.done.length, j.total) : t("done_title", j.done.length, j.total);
+  const done = `${j.done.length} of ${plural(j.total, "file")} converted`;
+  $("r_title").textContent = j.cancelled ? "Cancelled — " + done : done;
   const items = j.done.map(([input, out], i) => el("li", {},
     el("span", { class: "grow", text: out.split(/[\\/]/).pop() }),
-    el("button", { class: "btn small", type: "button", text: t("reveal"), onclick: () => api("/api/reveal", { index: i }) })));
+    el("button", { class: "btn small", type: "button", text: "Show in folder", onclick: () => api("/api/reveal", { index: i }) })));
   for (const [input, err] of j.failed) items.push(el("li", {}, el("span", { class: "grow bad", text: `${input}: ${err}` })));
   $("r_list").replaceChildren(...items);
   const notes = [];
-  if (j.failed.length) notes.push(t("failed_n", j.failed.length));
-  if (j.skipped) notes.push(t("skipped_n", j.skipped));
+  if (j.failed.length) notes.push(plural(j.failed.length, "error"));
+  if (j.skipped) notes.push(plural(j.skipped, "file") + " skipped (not an image)");
   message(notes.join(" · "), j.failed.length ? "bad" : (j.cancelled ? "" : "ok"));
 }
 
 // ---- Olaylar ----
-function renderAll() { translate(); if (!S) return; renderKinds(); renderFiles(); updateVisibility(); }
-
-for (const id of ["i_format", "i_quality", "m_output", "m_noaudio", "p_tool", "p_format", "p_quality"]) $(id).addEventListener("input", updateVisibility);
+for (const id of ["i_format", "i_quality"]) $(id).addEventListener("input", updateVisibility);
 $("more").addEventListener("click", () => { showAll = true; renderFiles(); });
 $("go").addEventListener("click", start);
-$("cancel").addEventListener("click", async () => { $("cancel").disabled = true; message(t("cancelling")); await api("/api/cancel", {}); });
+$("cancel").addEventListener("click", async () => { $("cancel").disabled = true; message("Cancelling…"); await api("/api/cancel", {}); });
 $("again").addEventListener("click", () => { message(""); view("setup"); updateVisibility(); });
 $("close").addEventListener("click", async () => { await api("/api/close", {}); window.close(); });
 $("save_preset").addEventListener("click", () => { $("dlg_name").value = ""; $("dlg").showModal(); $("dlg_name").focus(); });
@@ -460,24 +284,20 @@ $("dlg_form").addEventListener("submit", async (e) => {
   if (!label) return;
   const r = await api("/api/save-preset", { label, spec: spec() });
   $("dlg").close();
-  if (!r.ok) message(t("error") + " " + (r.data && r.data.error || ""), "bad");
-  else if (r.data.menu_error) message(t("preset_saved_nomenu") + " " + r.data.menu_error, "bad");
-  else message(t("preset_saved"), "ok");
+  if (!r.ok) message("Error: " + (r.data && r.data.error || ""), "bad");
+  else if (r.data.menu_error) message("Preset saved. " + r.data.menu_error, "bad");
+  else message("Preset saved; it is in the menu.", "ok");
 });
-$("lang").addEventListener("change", (e) => { lang = e.target.value; try { localStorage.setItem("lang", lang); } catch (_) {} renderAll(); setupOptions(S && S.last); updateVisibility(); });
-setInterval(async () => { try { const r = await api("/api/ping", {}); if (!r.ok) throw 0; } catch (_) { message(t("lost"), "bad"); } }, 5000);
+setInterval(async () => { try { const r = await api("/api/ping", {}); if (!r.ok) throw 0; } catch (_) { message("Connection lost.", "bad"); } }, 5000);
 
 (async () => {
-  translate();
   view("setup");
   const r = await api("/api/state");
-  if (!r.ok) { message(t("error"), "bad"); return; }
+  if (!r.ok) { message("Error: could not load the selection.", "bad"); return; }
   S = r.data;
-  const kinds = availableKinds();
-  kind = S.last && kinds.includes(S.last.kind) ? S.last.kind : kinds[0] || null;
   setupOptions(S.last);
-  renderAll();
-  view("setup");
+  renderFiles();
+  updateVisibility();
 })();
 </script>
 </body>

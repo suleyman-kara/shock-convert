@@ -14,6 +14,7 @@ mod store;
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -78,13 +79,13 @@ pub fn serve(app: Arc<dyn App>, print_url: bool) -> Result<(), String> {
                 // Windows'ta kabul edilen bağlantı dinleyicinin engellemesiz kipini devralır;
                 // istek henüz gelmemişse okuma "WouldBlock" ile düşer ve bağlantı yanıtsız kapanırdı.
                 if let Err(e) = stream.set_nonblocking(false) {
-                    crate::log::line(&format!("pencere: {e}"));
+                    crate::log::line(&format!("window: {e}"));
                     continue;
                 }
                 let s = Arc::clone(&server);
                 std::thread::spawn(move || {
                     if let Err(e) = handle(&s, stream) {
-                        crate::log::line(&format!("pencere: {e}"));
+                        crate::log::line(&format!("window: {e}"));
                     }
                 });
             }
@@ -129,8 +130,7 @@ fn random_token() -> String {
 
 fn launch_window(url: &str, (w, h): (u32, u32)) -> Result<(), String> {
     let (settings, _) = crate::presets::load();
-    let browser = crate::pdf::browser::locate(settings.browser_path.as_deref())
-        .ok_or_else(|| crate::pdf::browser::HINT.to_string())?;
+    let browser = locate_browser(settings.browser_path.as_deref()).ok_or(BROWSER_HINT)?;
     // Ayrı profil: kullanıcının tarayıcı oturumuna, sekmelerine ve eklentilerine dokunulmaz.
     let profile = crate::log::path()
         .parent()
@@ -150,7 +150,54 @@ fn launch_window(url: &str, (w, h): (u32, u32)) -> Result<(), String> {
     }
     cmd.spawn()
         .map(|_| ())
-        .map_err(|e| format!("pencere açılamadı: {e}"))
+        .map_err(|e| format!("could not open window: {e}"))
+}
+
+const BROWSER_HINT: &str = "Microsoft Edge or Google Chrome is needed for this window but was not \
+     found. You can set its path with `browser_path` in presets.toml.";
+
+/// Pencere için tarayıcı. Sırayla: yapılandırılmış yol, `SHOCK_CONVERT_BROWSER`, Windows'ta
+/// Edge/Chrome kurulum yolları, `PATH`. Windows 10/11'de Edge her zaman vardır.
+pub(crate) fn locate_browser(configured: Option<&Path>) -> Option<PathBuf> {
+    if let Some(p) = configured.filter(|p| p.is_file()) {
+        return Some(p.to_path_buf());
+    }
+    if let Some(p) = std::env::var_os("SHOCK_CONVERT_BROWSER")
+        .map(PathBuf::from)
+        .filter(|p| p.is_file())
+    {
+        return Some(p);
+    }
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for var in ["ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"] {
+        if let Some(base) = std::env::var_os(var).map(PathBuf::from) {
+            candidates.push(base.join(r"Microsoft\Edge\Application\msedge.exe"));
+            candidates.push(base.join(r"Google\Chrome\Application\chrome.exe"));
+        }
+    }
+    if let Some(c) = candidates.into_iter().find(|c| c.is_file()) {
+        return Some(c);
+    }
+    let names = [
+        "msedge",
+        "microsoft-edge",
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "chrome",
+    ];
+    let paths = std::env::var_os("PATH")?;
+    std::env::split_paths(&paths).find_map(|dir| {
+        names.iter().find_map(|n| {
+            let exe = dir.join(if cfg!(windows) {
+                format!("{n}.exe")
+            } else {
+                (*n).to_string()
+            });
+            exe.is_file().then_some(exe)
+        })
+    })
 }
 
 struct Request {
@@ -194,7 +241,7 @@ fn read_request(stream: &TcpStream) -> Result<Request, String> {
             break;
         }
         if headers.len() > 100 {
-            return Err("çok fazla başlık".into());
+            return Err("too many headers".into());
         }
         if let Some((k, v)) = h.split_once(':') {
             headers.push((k.trim().to_string(), v.trim().to_string()));
@@ -206,7 +253,7 @@ fn read_request(stream: &TcpStream) -> Result<Request, String> {
         .and_then(|(_, v)| v.parse().ok())
         .unwrap_or(0);
     if len > MAX_BODY {
-        return Err("istek gövdesi çok büyük".into());
+        return Err("request body too large".into());
     }
     let mut body = vec![0; len];
     reader.read_exact(&mut body).map_err(|e| e.to_string())?;
@@ -316,7 +363,7 @@ mod tests {
     struct Echo;
     impl App for Echo {
         fn page(&self) -> &'static str {
-            "<html>deneme</html>"
+            "<html>test</html>"
         }
         fn window_size(&self) -> (u32, u32) {
             (100, 100)

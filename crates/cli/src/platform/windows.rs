@@ -105,8 +105,8 @@ pub fn register(exe: &Path, entries: &[Entry]) -> Result<(), String> {
         // Alt menünün sonunda, ayırıcıdan sonra: özel dönüştürme ve ayarlar penceresi.
         // "zy"/"zz" anahtarları sıralamada sona düşer.
         for (key, label, args, separator) in [
-            ("zy-custom", "Özel dönüştür…", "shell-custom \"%1\"", true),
-            ("zz-settings", "Ayarlar…", "settings", false),
+            ("zy-custom", "Custom convert…", "shell-custom \"%1\"", true),
+            ("zz-settings", "Settings…", "settings", false),
         ] {
             let (item, _) = hkcu()
                 .create_subkey(format!(r"{base}\shell\{key}"))
@@ -165,7 +165,7 @@ fn is_empty_key(path: &str) -> bool {
 }
 
 fn install_dir() -> Result<PathBuf, String> {
-    let base = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA tanımlı değil")?;
+    let base = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is not set")?;
     Ok(PathBuf::from(base).join("Programs").join("ShockConvert"))
 }
 
@@ -177,16 +177,7 @@ pub fn install() -> Result<(), String> {
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let dest = dir.join("shock-convert.exe");
     if src != dest {
-        std::fs::copy(&src, &dest).map_err(|e| format!("exe kopyalanamadı: {e}"))?;
-    }
-    // PDF'i görüntüye/metne çeviren PDFium kitaplığı exe'nin yanında durur.
-    if let Some(dll) = src
-        .parent()
-        .map(|p| p.join("pdfium.dll"))
-        .filter(|p| p.is_file() && *p != dir.join("pdfium.dll"))
-    {
-        std::fs::copy(&dll, dir.join("pdfium.dll"))
-            .map_err(|e| format!("pdfium.dll kopyalanamadı: {e}"))?;
+        std::fs::copy(&src, &dest).map_err(|e| format!("could not copy exe: {e}"))?;
     }
     if let Some(src_plugins) = src
         .parent()
@@ -229,7 +220,7 @@ pub fn uninstall() -> Result<(), String> {
     if dir.exists() {
         let wide_ok = dir.as_os_str().encode_wide().all(|c| c != u16::from(b'"'));
         if !wide_ok {
-            return Err("kurulum yolu geçersiz karakter içeriyor".into());
+            return Err("install path contains an invalid character".into());
         }
         Command::new("cmd")
             .raw_arg(format!(

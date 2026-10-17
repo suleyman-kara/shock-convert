@@ -73,11 +73,6 @@ p { margin: 0; }
 .nav-links { display: flex; gap: 22px; margin-left: auto; }
 .nav-links a { color: rgba(255, 255, 255, 0.85); font-size: 0.95rem; }
 .nav-actions { display: flex; align-items: center; gap: 12px; }
-.lang {
-  background: rgba(255, 255, 255, 0.12); color: #fff; border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-}
-.lang:hover { background: rgba(255, 255, 255, 0.22); }
 .gh { color: #fff; display: flex; }
 @media (max-width: 760px) { .nav-links { display: none; } .nav-actions { margin-left: auto; } }
 

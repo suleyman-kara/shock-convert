@@ -1,12 +1,11 @@
-//! Ayarlar penceresi: genel ayarlar, PDF motoru, araç yolları, menü ve kullanıcı preset'leri.
+//! Ayarlar penceresi: genel ayarlar, menü ve kullanıcı preset'leri.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
 
 use super::{App, store};
-use crate::presets::{self, Kind};
+use crate::presets;
 
 struct Settings;
 
@@ -54,36 +53,13 @@ pub(crate) fn reregister_menu() -> Option<String> {
     }
 }
 
-fn group_of(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Image => "image",
-        Kind::Pdf | Kind::PdfTool => "pdf",
-        Kind::Ffmpeg => "media",
-    }
-}
-
-fn path_or_null(p: Option<PathBuf>) -> Value {
-    p.map_or(Value::Null, |p| Value::String(p.display().to_string()))
-}
-
 /// Arayüzün ilk açılışta ihtiyaç duyduğu her şey.
 fn state() -> Result<Value, String> {
     let values = store::Values::current()?;
     let (settings, warnings) = presets::load();
     let builtins: Vec<Value> = presets::defaults()
         .iter()
-        .map(|p| {
-            json!({
-                "id": p.id, "label": p.label, "kind": p.kind, "output": p.output,
-                "group": group_of(p.kind),
-            })
-        })
-        .collect();
-    use crate::pdf::msoffice::App;
-    let office: Vec<&str> = [App::Word, App::Excel, App::PowerPoint]
-        .into_iter()
-        .filter(|a| a.installed())
-        .map(App::name)
+        .map(|p| json!({ "id": p.id, "label": p.label, "output": p.output }))
         .collect();
     let formats: Vec<Value> = shock_convert_core::Format::ALL
         .iter()
@@ -93,12 +69,8 @@ fn state() -> Result<Value, String> {
         "values": values,
         "builtins": builtins,
         "formats": formats,
-        "detected": {
-            "ffmpeg": path_or_null(crate::ffmpeg::locate(settings.ffmpeg_path.as_deref())),
-            "browser": path_or_null(crate::pdf::browser::locate(settings.browser_path.as_deref())),
-            "libreoffice": path_or_null(crate::pdf::libreoffice::locate(settings.libreoffice_path.as_deref())),
-            "office": office,
-        },
+        "browser": super::locate_browser(settings.browser_path.as_deref())
+            .map(|p| p.display().to_string()),
         "config_path": crate::config::presets_path().display().to_string(),
         "warnings": warnings,
         "version": env!("CARGO_PKG_VERSION"),

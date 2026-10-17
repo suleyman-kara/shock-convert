@@ -14,7 +14,7 @@ pub struct Reserved {
 }
 
 impl Reserved {
-    /// Yazılacak geçici dosya (uzantısı asıl uzantıyla aynı; ffmpeg gibi araçlar biçimi buradan anlar).
+    /// Yazılacak geçici dosya (uzantısı asıl uzantıyla aynı; eklentiler biçimi buradan anlar).
     pub fn path(&self) -> &Path {
         &self.temp
     }
@@ -57,13 +57,13 @@ fn move_no_overwrite(from: &Path, to: &Path) -> io::Result<()> {
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
                 return Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
-                    format!("{} bu sırada başka bir dosyaca alındı", to.display()),
+                    format!("{} was taken by another file meanwhile", to.display()),
                 ));
             }
             Err(_) if to.exists() => {
                 return Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
-                    format!("{} bu sırada başka bir dosyaca alındı", to.display()),
+                    format!("{} was taken by another file meanwhile", to.display()),
                 ));
             }
             Err(_) => match std::fs::rename(from, to) {
@@ -72,7 +72,7 @@ fn move_no_overwrite(from: &Path, to: &Path) -> io::Result<()> {
             },
         }
     }
-    Err(last.unwrap_or_else(|| io::Error::other("çıktı taşınamadı")))
+    Err(last.unwrap_or_else(|| io::Error::other("could not move output")))
 }
 
 /// `dir/ad.uzanti` (ek verilirse `dir/ad-ek.uzanti`) adını rezerve eder; doluysa `ad (1).uzanti`,
@@ -120,8 +120,7 @@ pub fn reserve_output(input: &Path, suffix: Option<&str>, ext: &str) -> io::Resu
     unreachable!("sonsuz aralıkta boş ad bulunur")
 }
 
-/// Çöken bir dönüşümden kalan geçici dosya adı sonsuza dek tutmasın. Tüm araçlarımız ya sürekli
-/// yazar (ffmpeg) ya da en geç birkaç dakikada zaman aşımına uğrar; bir saattir dokunulmamış
+/// Çöken bir dönüşümden kalan geçici dosya adı sonsuza dek tutmasın: bir saattir dokunulmamış
 /// `.part` dosyası artık kimseye ait değildir.
 fn remove_if_stale(temp: &Path) {
     const STALE: std::time::Duration = std::time::Duration::from_secs(60 * 60);

@@ -21,9 +21,9 @@ const ICO_SIZES: [u32; 6] = [16, 32, 48, 64, 128, 256];
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConvertError {
-    #[error("dosya açılamadı: {0}")]
+    #[error("could not open file: {0}")]
     Io(#[from] std::io::Error),
-    #[error("görüntü işlenemedi: {0}")]
+    #[error("could not process image: {0}")]
     Image(#[from] image::ImageError),
 }
 
@@ -116,24 +116,6 @@ pub fn convert_file_with(
     Ok(out.commit()?)
 }
 
-/// Bellekteki bir görüntüyü `out` yoluna `target` formatında yazar (ör. PDF sayfası çizimi).
-/// Meta veri yoktur; hata olursa yarım kalan dosya silinir.
-pub fn save_image(
-    img: &DynamicImage,
-    out: &Path,
-    target: Format,
-    opts: &Options,
-) -> Result<(), ConvertError> {
-    write(img, out, target, opts, &Meta::default()).inspect_err(|_| {
-        let _ = std::fs::remove_file(out);
-    })
-}
-
-/// Dosyayı açar ve EXIF yönünü uygular. Animasyonlu girdilerde ilk kare alınır.
-pub(crate) fn load(input: &Path) -> Result<DynamicImage, ConvertError> {
-    load_with_meta(input).map(|(img, _)| img)
-}
-
 /// Kaynaktan taşınan meta veri: renk profili (ICC) ve EXIF (kamera, tarih, konum …).
 #[derive(Debug, Default)]
 pub(crate) struct Meta {
@@ -141,7 +123,7 @@ pub(crate) struct Meta {
     exif: Option<Vec<u8>>,
 }
 
-/// Görüntüyü EXIF yönü uygulanmış olarak yükler; ICC ve EXIF'i ayrıca döndürür. Yön pikselere
+/// Görüntüyü EXIF yönü uygulanmış olarak yükler (animasyonlu girdilerde ilk kare); ICC ve EXIF'i ayrıca döndürür. Yön pikselere
 /// uygulandığı için EXIF'teki yön etiketi "dönüşüm yok" yapılır, yoksa görüntü iki kez dönerdi.
 pub(crate) fn load_with_meta(input: &Path) -> Result<(DynamicImage, Meta), ConvertError> {
     let reader = ImageReader::open(input)?.with_guessed_format()?;
@@ -209,7 +191,7 @@ fn write(
 }
 
 /// Şeffaf alanı verilen renge oturtur (JPG şeffaflık desteklemez).
-pub(crate) fn flatten_on(img: &DynamicImage, [r, g, b]: [u8; 3]) -> DynamicImage {
+fn flatten_on(img: &DynamicImage, [r, g, b]: [u8; 3]) -> DynamicImage {
     let rgba = img.to_rgba8();
     let mut bg = RgbaImage::from_pixel(rgba.width(), rgba.height(), Rgba([r, g, b, 255]));
     image::imageops::overlay(&mut bg, &rgba, 0, 0);
