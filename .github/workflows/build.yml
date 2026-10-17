@@ -60,10 +60,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-gnu
-      - name: PDFium (PDF -> görüntü/metin testleri için)
-        run: |
-          ./scripts/fetch-pdfium.sh linux-x64
-          echo "SHOCK_CONVERT_PDFIUM=$PWD/third_party/pdfium/linux-x64/lib" >> "$GITHUB_ENV"
       - run: cargo test --workspace
       - run: cargo check --workspace --target x86_64-pc-windows-gnu
 
@@ -96,11 +92,6 @@ jobs:
           (Get-Content $toml) -replace '^version = ".*"$', "version = `"$env:VERSION`"" | Set-Content $toml
           Select-String -Path $toml -Pattern '^version = '
       - run: cargo build --release
-      - name: PDFium
-        shell: pwsh
-        run: |
-          ./scripts/fetch-pdfium.ps1
-          Copy-Item third_party/pdfium/win-x64/bin/pdfium.dll target/release/pdfium.dll
       - name: İkon ve sürüm bilgisi exe'ye gömülmüş mü
         shell: pwsh
         run: |
@@ -115,21 +106,21 @@ jobs:
             throw "Surum yanlis: ProductVersion='$($info.ProductVersion)', beklenen '$env:VERSION'"
           }
           Write-Host "Gomulu kaynak tamam: $($info.ProductName) $($info.ProductVersion)"
-      - name: PDFium Windows'ta yükleniyor mu (PNG -> PDF -> PNG)
+      - name: Windows'ta dönüştürme (PNG -> JPG -> WebP)
         shell: pwsh
         run: |
-          $d = Join-Path $env:RUNNER_TEMP "pdfium-smoke"
+          $d = Join-Path $env:RUNNER_TEMP "convert-smoke"
           New-Item -ItemType Directory -Force $d | Out-Null
           Copy-Item assets/icon.png (Join-Path $d "ornek.png")
           $env:SHOCK_CONVERT_CONFIG_DIR = Join-Path $d "cfg"
           $exe = "target/release/shock-convert.exe"
           # Exe bir GUI uygulaması (konsol açmaz); PowerShell beklemesin diye -Wait.
-          Start-Process $exe -ArgumentList "run", "pdf", (Join-Path $d "ornek.png") -Wait -NoNewWindow
-          Start-Process $exe -ArgumentList "run", "pdf-png", (Join-Path $d "ornek.pdf") -Wait -NoNewWindow
+          Start-Process $exe -ArgumentList "run", "jpg", (Join-Path $d "ornek.png") -Wait -NoNewWindow
+          Start-Process $exe -ArgumentList "run", "webp", (Join-Path $d "ornek.jpg") -Wait -NoNewWindow
           Get-ChildItem $d | Format-Table Name, Length
-          if (-not (Test-Path (Join-Path $d "ornek (1).png"))) {
+          if (-not (Test-Path (Join-Path $d "ornek.webp"))) {
             Get-Content (Join-Path $env:LOCALAPPDATA "ShockConvert\log.txt") -Tail 20
-            throw "PDF -> PNG calismadi (pdfium.dll yuklenemedi mi?)"
+            throw "PNG -> JPG -> WebP calismadi"
           }
           exit 0
       - name: Ayarlar sunucusu Windows'ta çalışıyor mu
@@ -151,27 +142,11 @@ jobs:
           $token = ([uri]$url).Query -replace '^\?t=', ''
           $base = $url -replace '/\?t=.*$', ''
           $state = Invoke-RestMethod -Uri "$base/api/state" -Headers @{ "X-Token" = $token }
-          Write-Host "Office: $($state.detected.office -join ', ') | tarayici: $($state.detected.browser)"
-          if (-not $state.detected.browser) { throw "Edge bulunamadi" }
+          Write-Host "tarayici: $($state.browser)"
+          if (-not $state.browser) { throw "Edge bulunamadi" }
           Invoke-RestMethod -Method Post -Uri "$base/api/close" -Headers @{ "X-Token" = $token } | Out-Null
           if (-not $p.WaitForExit(10000)) { $p.Kill(); throw "sunucu kapanmadi" }
           exit 0
-      - name: Office PDF betiği (Windows PowerShell 5.1)
-        shell: powershell
-        run: |
-          $path = "crates/cli/src/pdf/msoffice.ps1"
-          $errors = $null
-          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$null, [ref]$errors)
-          if ($errors) { $errors | Out-String | Write-Host; throw "msoffice.ps1 sozdizimi hatali" }
-          # Office yokken (CI) hata yolu: betik hata dosyasini yazip 1 ile cikmali, asili kalmamali.
-          $env:SC_IN = "C:\yok.docx"; $env:SC_OUT = "$env:RUNNER_TEMP\out.pdf"; $env:SC_APP = "Word"
-          $env:SC_PROGID = "ShockConvert.YokBoyleBirUygulama"; $env:SC_PROC = "YOKBOYLE"
-          $env:SC_ERR = "$env:RUNNER_TEMP\err.txt"; $env:SC_PIDS = "$env:RUNNER_TEMP\pids.txt"
-          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $path
-          if ($LASTEXITCODE -ne 1) { throw "beklenen cikis kodu 1, gelen $LASTEXITCODE" }
-          if (-not (Test-Path $env:SC_ERR)) { throw "hata dosyasi yazilmadi" }
-          Write-Host "Hata yolu tamam: $(Get-Content $env:SC_ERR)"
-          exit 0 # beklenen 1 kodu adimin sonucuna sizmasin
       - name: Kurulum sihirbazı (Inno Setup)
         run: |
           choco install innosetup -y --no-progress
@@ -183,7 +158,6 @@ jobs:
           path: |
             dist/*.exe
             target/release/shock-convert.exe
-            target/release/pdfium.dll
 
   release:
     needs: [version, windows]
@@ -204,7 +178,7 @@ jobs:
           name: shock-convert-windows
       - name: Yayınla
         run: |
-          files=(dist/shock-convert-setup-*.exe target/release/shock-convert.exe target/release/pdfium.dll)
+          files=(dist/shock-convert-setup-*.exe target/release/shock-convert.exe)
           ls -l "${files[@]}"
           case "$KIND" in
             stable)

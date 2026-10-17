@@ -1,17 +1,7 @@
 import { useEffect, useState } from "react";
-import { DICT, REPO, type Lang } from "./i18n";
+import { REPO, T as t } from "./i18n";
 
 type Latest = { version: string; setup: string; sha256?: string };
-
-function initialLang(): Lang {
-  try {
-    const saved = localStorage.getItem("lang");
-    if (saved === "tr" || saved === "en") return saved;
-  } catch {
-    /* depolama kapalı olabilir */
-  }
-  return navigator.language.toLowerCase().startsWith("tr") ? "tr" : "en";
-}
 
 /** Yayınlanmış en son sürüm: publish-download iş akışının yazdığı download/latest.json. */
 function useLatest(): Latest {
@@ -37,7 +27,7 @@ function Logo({ size = 32 }: { size?: number }) {
   return <img src="icon.png" width={size} height={size} alt="" className="logo" />;
 }
 
-function ContextMenuDemo({ t }: { t: (typeof DICT)["tr"] }) {
+function ContextMenuDemo() {
   return (
     <div className="demo" aria-hidden="true">
       <div className="file">
@@ -56,7 +46,7 @@ function ContextMenuDemo({ t }: { t: (typeof DICT)["tr"] }) {
           <span>Shock Convert</span>
           <span className="chev">›</span>
           <div className="submenu">
-            {["JPG", "WebP", "PDF", "ICO", "BMP"].map((f, i) => (
+            {["JPG", "WebP", "ICO", "BMP", "TIFF"].map((f, i) => (
               <div key={f} className={"menu-item" + (i === 0 ? " pick" : "")}>
                 {f}
               </div>
@@ -75,21 +65,10 @@ function ContextMenuDemo({ t }: { t: (typeof DICT)["tr"] }) {
 }
 
 export default function App() {
-  const [lang, setLang] = useState<Lang>(initialLang);
-  const t = DICT[lang];
   const latest = useLatest();
   const dir = `download/v${latest.version}/`;
   const setupUrl = dir + latest.setup;
   const portableUrl = `${REPO}/releases/download/v${latest.version}/shock-convert.exe`;
-
-  useEffect(() => {
-    document.documentElement.lang = lang;
-    try {
-      localStorage.setItem("lang", lang);
-    } catch {
-      /* yok sayılır */
-    }
-  }, [lang]);
 
   return (
     <>
@@ -106,13 +85,6 @@ export default function App() {
             <a href="#faq">{t.nav.faq}</a>
           </nav>
           <div className="nav-actions">
-            <button
-              className="lang"
-              onClick={() => setLang(lang === "tr" ? "en" : "tr")}
-              aria-label={lang === "tr" ? "Switch to English" : "Türkçeye geç"}
-            >
-              {lang === "tr" ? "EN" : "TR"}
-            </button>
             <a className="gh" href={REPO} aria-label="GitHub">
               <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
                 <path
@@ -149,7 +121,7 @@ export default function App() {
                 </a>
               </div>
             </div>
-            <ContextMenuDemo t={t} />
+            <ContextMenuDemo />
           </div>
         </section>
 
@@ -222,11 +194,6 @@ export default function App() {
                 <div className="notice">
                   <strong>{t.download.smartTitle}</strong>
                   <p>{t.download.smart}</p>
-                  <p className="signing">
-                    Free code signing provided by <a href="https://about.signpath.io/">SignPath.io</a>,
-                    certificate by <a href="https://signpath.org/">SignPath Foundation</a>
-                    {t.download.signingStatus}
-                  </p>
                 </div>
               </div>
             </div>
@@ -268,7 +235,6 @@ export default function App() {
           </div>
           <nav>
             <a href={`${REPO}/blob/main/LICENSE`}>{t.footer.license}</a>
-            <a href={`${REPO}/blob/main/CODE_SIGNING.md`}>{t.footer.signing}</a>
             <a href={`${REPO}/releases`}>{t.footer.releases}</a>
             <a href={`${REPO}/issues`}>{t.footer.issues}</a>
           </nav>

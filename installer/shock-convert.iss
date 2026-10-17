@@ -26,23 +26,21 @@ ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 
 [Languages]
-Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "..\target\release\shock-convert.exe"; DestDir: "{app}"; Flags: ignoreversion
-; PDF -> görüntü/metin için PDFium (scripts\fetch-pdfium.ps1 indirir) ve lisansları.
-Source: "..\third_party\pdfium\win-x64\bin\pdfium.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\third_party\pdfium\win-x64\LICENSE"; DestDir: "{app}\licenses\pdfium"; Flags: ignoreversion
-Source: "..\third_party\pdfium\win-x64\licenses\*"; DestDir: "{app}\licenses\pdfium"; Flags: ignoreversion
 
-[CustomMessages]
-turkish.SettingsName=Shock Convert Ayarları
-english.SettingsName=Shock Convert Settings
+[InstallDelete]
+; Eski sürümlerden kalan PDF bileşenleri (PDF desteği kaldırıldı).
+Type: files; Name: "{app}\pdfium.dll"
+Type: filesandordirs; Name: "{app}\licenses\pdfium"
+; Türkçe kurulumların eski Başlat menüsü kısayolu (arayüz artık yalnızca İngilizce).
+Type: files; Name: "{userprograms}\Shock Convert Ayarları.lnk"
 
 [Icons]
-; Başlat menüsünden ayarlar penceresi (sağ tık menüsünün sonunda da "Ayarlar…" var).
-Name: "{userprograms}\{cm:SettingsName}"; Filename: "{app}\shock-convert.exe"; Parameters: "settings"; IconFilename: "{app}\shock-convert.exe"
+; Başlat menüsünden ayarlar penceresi (sağ tık menüsünün sonunda da "Settings…" var).
+Name: "{userprograms}\Shock Convert Settings"; Filename: "{app}\shock-convert.exe"; Parameters: "settings"; IconFilename: "{app}\shock-convert.exe"
 
 [Run]
 ; Menüyü (eklentiler dahil) kayıt defterine yazar.

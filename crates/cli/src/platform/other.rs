@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::menu::Entry;
 
-const MSG: &str = "bu komut yalnızca Windows'ta çalışır";
+const MSG: &str = "this command only works on Windows";
 
 pub fn init_console() {}
 

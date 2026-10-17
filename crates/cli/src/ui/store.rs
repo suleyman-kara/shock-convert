@@ -14,11 +14,6 @@ pub struct Values {
     pub keep_dates: bool,
     /// keep | strip-location | strip
     pub metadata: String,
-    /// auto | office | libreoffice | builtin
-    pub pdf_engine: String,
-    pub ffmpeg_path: String,
-    pub browser_path: String,
-    pub libreoffice_path: String,
     /// Menüden gizlenen yerleşik preset kimlikleri.
     pub hide: Vec<String>,
     /// Kullanıcının kendi preset'leri (aynı kimlikle yerleşik olanı ezenler dahil).
@@ -31,10 +26,6 @@ impl Values {
         Ok(Values {
             keep_dates: f.keep_dates.unwrap_or(true),
             metadata: f.metadata.unwrap_or_else(|| "keep".into()),
-            pdf_engine: f.pdf_engine.unwrap_or_else(|| "auto".into()),
-            ffmpeg_path: f.ffmpeg_path.unwrap_or_default(),
-            browser_path: f.browser_path.unwrap_or_default(),
-            libreoffice_path: f.libreoffice_path.unwrap_or_default(),
             hide: f.hide,
             presets: f.preset,
         })
@@ -46,19 +37,13 @@ impl Values {
         if shock_convert_core::Metadata::parse(&self.metadata).is_none() {
             errors.push((
                 "metadata".into(),
-                format!("geçersiz değer: {}", self.metadata),
-            ));
-        }
-        if crate::pdf::Engine::parse(&self.pdf_engine).is_none() {
-            errors.push((
-                "pdf_engine".into(),
-                format!("geçersiz değer: {}", self.pdf_engine),
+                format!("invalid value: {}", self.metadata),
             ));
         }
         let mut seen = std::collections::HashSet::new();
         for p in &self.presets {
             if !seen.insert(p.id.to_ascii_lowercase()) {
-                errors.push((p.id.clone(), "bu kimlik birden çok kez kullanılmış".into()));
+                errors.push((p.id.clone(), "this ID is used more than once".into()));
             }
             if let Err(e) = p.clone().into_preset() {
                 errors.push((p.id.clone(), e));
@@ -79,16 +64,11 @@ fn set_or_remove(doc: &mut DocumentMut, key: &str, item: Option<Item>) {
     }
 }
 
-fn non_empty(s: &str) -> Option<Item> {
-    let s = s.trim();
-    (!s.is_empty()).then(|| value(s))
-}
-
 /// Dosyanın yeni metnini üretir (yazmadan; test edilebilsin).
 pub fn render(existing: &str, v: &Values) -> Result<String, String> {
     let mut doc: DocumentMut = existing
         .parse()
-        .map_err(|e| format!("presets.toml okunamadı: {e}"))?;
+        .map_err(|e| format!("could not read presets.toml: {e}"))?;
     // Yalnızca yorumdan oluşan dosya (ilk kurulumdaki açıklamalı örnek): yorumlar başta kalsın,
     // ayarlar ve preset'ler altına eklensin.
     if doc.iter().next().is_none() && !existing.trim().is_empty() {
@@ -109,14 +89,6 @@ pub fn render(existing: &str, v: &Values) -> Result<String, String> {
         "metadata",
         (v.metadata != "keep").then(|| value(v.metadata.as_str())),
     );
-    set_or_remove(
-        &mut doc,
-        "pdf_engine",
-        (v.pdf_engine != "auto").then(|| value(v.pdf_engine.as_str())),
-    );
-    set_or_remove(&mut doc, "ffmpeg_path", non_empty(&v.ffmpeg_path));
-    set_or_remove(&mut doc, "browser_path", non_empty(&v.browser_path));
-    set_or_remove(&mut doc, "libreoffice_path", non_empty(&v.libreoffice_path));
     let hide: Array = v.hide.iter().map(String::as_str).collect();
     set_or_remove(&mut doc, "hide", (!hide.is_empty()).then(|| value(hide)));
 
@@ -183,16 +155,10 @@ pub fn save(v: &Values) -> Result<(), Vec<(String, String)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::presets::Kind;
-
     fn values() -> Values {
         Values {
             keep_dates: true,
             metadata: "keep".into(),
-            pdf_engine: "auto".into(),
-            ffmpeg_path: String::new(),
-            browser_path: String::new(),
-            libreoffice_path: String::new(),
             hide: vec![],
             presets: vec![],
         }
@@ -202,7 +168,7 @@ mod tests {
         RawPreset {
             id: "web-jpg".into(),
             label: "JPG (web, 1920 px)".into(),
-            kind: Kind::Image,
+            kind: "image".into(),
             output: "jpg".into(),
             input: vec!["image".into()],
             suffix: Some("web".into()),
@@ -210,15 +176,12 @@ mod tests {
             max_width: Some(1920),
             max_height: None,
             background: None,
-            args: vec![],
-            tool: None,
-            dpi: None,
         }
     }
 
     #[test]
     fn keeps_comments_and_writes_only_non_defaults() {
-        let existing = "# benim notum\n# keep_dates = true\nozel = 1\n";
+        let existing = "# benim notum\n# keep_dates = true\nozel = 1\npdf_engine = \"office\"\n";
         let mut v = values();
         v.keep_dates = false;
         v.metadata = "strip-location".into();
@@ -232,7 +195,7 @@ mod tests {
         );
         assert!(out.contains("keep_dates = false"));
         assert!(out.contains("metadata = \"strip-location\""));
-        assert!(!out.contains("pdf_engine"), "varsayılan yazılmaz: {out}");
+        assert!(out.contains("pdf_engine = \"office\""), "eski sürümün anahtarı korunmalı: {out}");
         assert!(out.contains("[[preset]]") && out.contains("max_width = 1920"));
         assert!(!out.contains("max_height"), "boş alan yazılmaz: {out}");
         let back: crate::presets::FileModel = toml::from_str(&out).unwrap();
@@ -293,7 +256,7 @@ mod tests {
         v.presets = vec![web_jpg(), web_jpg(), bad];
         let errors = v.validate();
         assert!(errors.iter().any(|(k, _)| k == "metadata"));
-        assert!(errors.iter().any(|(_, e)| e.contains("birden çok")));
+        assert!(errors.iter().any(|(_, e)| e.contains("more than once")));
         assert!(errors.iter().any(|(_, e)| e.contains("exe")), "{errors:?}");
     }
 }

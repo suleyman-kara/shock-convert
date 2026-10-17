@@ -80,12 +80,12 @@ fn load_one(dir: &Path, manifest_path: &Path) -> Result<Plugin, String> {
     let manifest: Manifest = toml::from_str(&text).map_err(|e| e.to_string())?;
 
     if manifest.name.is_empty() || manifest.name.contains(':') {
-        return Err("`name` boş olamaz ve ':' içeremez".into());
+        return Err("`name` must not be empty or contain ':'".into());
     }
     let mut entries = Vec::new();
     for raw in manifest.entries {
         if raw.command.is_empty() || raw.extensions.is_empty() {
-            return Err(format!("`{}` girdisinde command/extensions boş", raw.id));
+            return Err(format!("entry `{}` has empty command/extensions", raw.id));
         }
         entries.push(PluginEntry {
             id: raw.id,

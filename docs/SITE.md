@@ -12,8 +12,7 @@ npm run dev      # http://localhost:5173
 npm run build    # site/dist
 ```
 
-Metinler `site/src/i18n.ts` içinde (Türkçe ve İngilizce). Dil, tarayıcı diline göre seçilir; üst
-menüdeki TR/EN düğmesiyle değiştirilir.
+Metinler `site/src/i18n.ts` içinde, yalnızca İngilizce.
 
 ## Alan adı
 
@@ -29,8 +28,3 @@ Site https://shockconvert.suleymankara.com adresinde yayında. Bağlarken izlene
    `suleymankara.com` alan adını doğrulayın. Böylece başka biri bu alan adına ait bir alt alan adını
    kendi deposuna bağlayamaz.
 
-> **Microsoft Store uyarısı:** Özel alan adı bağlandığı anda
-> `suleyman-kara.github.io/shock-convert/...` adresleri yeni alan adına **yönlendirilir**. Store'un
-> paket bağlantısı yönlendirme kabul etmediği için Partner Center'daki Package URL
-> `https://shockconvert.suleymankara.com/download/vX.Y.Z/shock-convert-setup-X.Y.Z.exe` biçiminde
-> olmalı. `publish-download` iş akışının özeti bu bağlantıyı yazar.

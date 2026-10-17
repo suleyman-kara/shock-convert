@@ -1,7 +1,0 @@
-# PDFium (Chromium'un PDF motoru) hazır derlemesi: https://github.com/bblanchon/pdfium-binaries
-# Sürüm, crates/cli/Cargo.toml'daki pdfium-render özelliğiyle (pdfium_latest = 7881) eşleşmeli.
-# Lisans: PDFium BSD-3-Clause / Apache-2.0; içerdiği kitaplıkların lisansları arşivdeki licenses/ klasöründe.
-# Değiştirirken: yeni arşivlerin SHA-256 özetlerini de güncelleyin.
-version=chromium/7881
-pdfium-win-x64.tgz=73cc0de638ac2095e7445bf56a38200a5b7c7ca0e9f4ba144598f2457377ac08
-pdfium-linux-x64.tgz=1470e21b8b4a3b4ad7f85684e2da11d94f3b69a86d81dee11b9b6709d927ac1d
