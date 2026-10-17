@@ -213,3 +213,30 @@ jobs:
     uses: ./.github/workflows/publish-download.yml
     with:
       tag: ${{ needs.version.outputs.tag }}
+
+  # Kararlı sürümü winget'e gönderir: microsoft/winget-pkgs deposuna yeni sürümün manifestiyle PR açar.
+  # Ön koşullar (bkz. docs/WINGET.md): paketin ilk sürümü winget'te olmalı, hesapta winget-pkgs fork'u
+  # bulunmalı ve WINGET_TOKEN secret'ı (klasik PAT, public_repo) tanımlı olmalı. Secret yoksa atlanır.
+  winget:
+    needs: [version, release]
+    if: needs.version.outputs.kind == 'stable'
+    runs-on: ubuntu-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - name: WINGET_TOKEN tanımlı mı
+        id: token
+        run: |
+          if [ -n "$WINGET_TOKEN" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "WINGET_TOKEN tanımlı değil; winget'e gönderilmedi." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
+        if: steps.token.outputs.ok == 'true'
+        with:
+          identifier: SuleymanKara.ShockConvert
+          release-tag: ${{ needs.version.outputs.tag }}
+          installers-regex: 'shock-convert-setup-.*\.exe$'
+          max-versions-to-keep: 3
+          token: ${{ secrets.WINGET_TOKEN }}
