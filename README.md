@@ -17,13 +17,21 @@ photo.png  ──right-click──▶  Shock Convert ▸ JPG  ──▶  photo.j
 
 ## Install / uninstall
 
-**With the installer:** run `shock-convert-setup-<version>.exe`. To uninstall, pick "Shock Convert" in *Settings ▸ Apps*; the menu, registry keys and files are removed completely.
+**With winget (recommended):**
 
-**Without the installer:** `shock-convert.exe install` copies itself to `%LOCALAPPDATA%\Programs\ShockConvert`, registers the menu and adds an uninstall entry. `shock-convert.exe uninstall` undoes all of it.
+```
+winget install SuleymanKara.ShockConvert
+winget upgrade SuleymanKara.ShockConvert
+winget uninstall SuleymanKara.ShockConvert
+```
+
+No admin rights are needed; everything is installed into your user profile. Uninstalling removes the menu, registry keys and files completely.
+
+**With the installer:** run `shock-convert-setup-<version>.exe` from [Releases](https://github.com/suleyman-kara/shock-convert/releases). Shock Convert is not code-signed, so Windows SmartScreen may warn when you run a downloaded installer: choose **More info ▸ Run anyway**. The download page shows the installer's SHA-256 checksum to compare against. Installing with winget avoids this warning.
+
+**Without an installer:** `shock-convert.exe install` copies itself to `%LOCALAPPDATA%\Programs\ShockConvert`, registers the menu and adds an uninstall entry. `shock-convert.exe uninstall` undoes all of it.
 
 > The menu points at the exe's location, so don't move the exe after installing; if you do, run `install` again.
-
-Shock Convert is not code-signed, so Windows SmartScreen may warn when you run the downloaded installer: choose **More info ▸ Run anyway**. The download page shows the installer's SHA-256 checksum to compare against.
 
 ## Custom convert
 
@@ -135,6 +143,7 @@ Releases are made automatically by GitHub Actions; no manual tagging is needed:
   - A `release:minor` or `release:major` label on the PR bumps that part instead (`v0.2.0`, `v1.0.0`).
   - A `release:skip` label, or a change that only touches docs/site/workflows, makes no release.
   - If the version in `crates/cli/Cargo.toml` is raised by hand, that version is used.
+- **After a stable release:** the `winget` job opens a pull request with the new version's manifest in [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs). Setup and the first submission: [docs/WINGET.md](docs/WINGET.md).
 
 ## License
 

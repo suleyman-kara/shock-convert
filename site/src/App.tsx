@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { REPO, T as t } from "./i18n";
+import { REPO, T as t, WINGET_CMD } from "./i18n";
 
 type Latest = { version: string; setup: string; sha256?: string };
 
@@ -25,6 +25,35 @@ function useLatest(): Latest {
 
 function Logo({ size = 32 }: { size?: number }) {
   return <img src="icon.png" width={size} height={size} alt="" className="logo" />;
+}
+
+/** Kopyalama düğmeli winget komutu. */
+function Command({ large = false }: { large?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard
+      .writeText(WINGET_CMD)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => {
+        /* pano izni yoksa kullanıcı metni elle seçebilir */
+      });
+  };
+  return (
+    <div className={"cmd" + (large ? " cmd-large" : "")}>
+      <code>
+        <span className="cmd-prompt" aria-hidden="true">
+          &gt;
+        </span>{" "}
+        {WINGET_CMD}
+      </code>
+      <button type="button" onClick={copy}>
+        {copied ? t.hero.copied : t.hero.copy}
+      </button>
+    </div>
+  );
 }
 
 function ContextMenuDemo() {
@@ -108,13 +137,13 @@ export default function App() {
                 <span className="accent">{t.hero.title2}</span>
               </h1>
               <p className="lead">{t.hero.lead}</p>
+              <p className="cmd-label">
+                {t.hero.install} <span className="ver">v{latest.version}</span>
+              </p>
+              <Command large />
               <div className="cta-row">
-                <a className="btn btn-primary" href={setupUrl}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                    <path fill="currentColor" d="M12 16l-5-5h3V4h4v7h3l-5 5zm-7 2h14v2H5v-2z" />
-                  </svg>
-                  {t.hero.cta}
-                  <span className="ver">v{latest.version}</span>
+                <a className="btn btn-ghost" href="#download">
+                  {t.download.setup}
                 </a>
                 <a className="btn btn-ghost" href={REPO}>
                   {t.hero.secondary}
@@ -163,7 +192,12 @@ export default function App() {
             <h2>{t.download.title}</h2>
             <div className="download">
               <div className="dl-main">
-                <a className="dl-card primary" href={setupUrl}>
+                <div className="dl-card primary">
+                  <span className="dl-title">{t.download.winget}</span>
+                  <span className="dl-hint">{t.download.wingetHint}</span>
+                  <Command />
+                </div>
+                <a className="dl-card" href={setupUrl}>
                   <span className="dl-title">{t.download.setup}</span>
                   <span className="dl-hint">{t.download.setupHint}</span>
                   <span className="dl-meta">
