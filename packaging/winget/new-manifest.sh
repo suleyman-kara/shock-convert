@@ -15,7 +15,7 @@ repo="suleyman-kara/shock-convert"
 url="https://github.com/${repo}/releases/download/v${version}/shock-convert-setup-${version}.exe"
 # installer/shock-convert.iss içindeki AppId; Inno kaldırma anahtarına "_is1" ekler.
 product_code="{6F1B7C52-3D0A-4E8B-9A57-5C0D2E94B1A3}_is1"
-schema="1.9.0"
+schema="1.12.0"
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
