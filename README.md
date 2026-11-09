@@ -4,6 +4,10 @@ A small, fast Windows tool that converts images from the **right-click menu** in
 
 **Website and download:** https://shockconvert.suleymankara.com/
 
+**Install:** `winget install SuleymanKara.ShockConvert` ([winget package](https://github.com/microsoft/winget-pkgs/tree/master/manifests/s/SuleymanKara/ShockConvert))
+
+> **Status:** v0.2.0 is the final release; no further versions are planned.
+
 ```
 photo.png  ──right-click──▶  Shock Convert ▸ JPG  ──▶  photo.jpg   (same folder)
 ```
@@ -21,13 +25,12 @@ photo.png  ──right-click──▶  Shock Convert ▸ JPG  ──▶  photo.j
 
 ```
 winget install SuleymanKara.ShockConvert
-winget upgrade SuleymanKara.ShockConvert
 winget uninstall SuleymanKara.ShockConvert
 ```
 
-No admin rights are needed; everything is installed into your user profile. Uninstalling removes the menu, registry keys and files completely.
+Uninstalling (with winget or from *Settings ▸ Apps*) removes the menu, registry keys and files completely.
 
-**With the installer:** run `shock-convert-setup-<version>.exe` from [Releases](https://github.com/suleyman-kara/shock-convert/releases). Shock Convert is not code-signed, so Windows SmartScreen may warn when you run a downloaded installer: choose **More info ▸ Run anyway**. The download page shows the installer's SHA-256 checksum to compare against. Installing with winget avoids this warning.
+**With the installer:** run `shock-convert-setup-<version>.exe` from [Releases](https://github.com/suleyman-kara/shock-convert/releases). Shock Convert is not code-signed, so Windows SmartScreen may warn when you run a downloaded installer: choose **More info ▸ Run anyway**. The download page shows the installer's SHA-256 checksum to compare against.
 
 **Without an installer:** `shock-convert.exe install` copies itself to `%LOCALAPPDATA%\Programs\ShockConvert`, registers the menu and adds an uninstall entry. `shock-convert.exe uninstall` undoes all of it.
 
@@ -136,14 +139,7 @@ Registry keys (all under `HKCU`): `Software\Classes\SystemFileAssociations\.<ext
 
 ## Releases
 
-Releases are made automatically by GitHub Actions; no manual tagging is needed:
-
-- **When a PR is opened** (from this repo): a **pre-release** named `pr-<number>` is created with the PR's installer for testing. It is refreshed on every push, linked from a PR comment and deleted when the PR closes.
-- **When merged into main:** a patch release follows the last one (`v0.1.0` → `v0.1.1`), release notes are generated from the PRs, and the installer is also placed at the fixed download address on GitHub Pages.
-  - A `release:minor` or `release:major` label on the PR bumps that part instead (`v0.2.0`, `v1.0.0`).
-  - A `release:skip` label, or a change that only touches docs/site/workflows, makes no release.
-  - If the version in `crates/cli/Cargo.toml` is raised by hand, that version is used.
-- **After a stable release:** the `winget` job opens a pull request with the new version's manifest in [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs). Setup and the first submission: [docs/WINGET.md](docs/WINGET.md).
+Releases are built by GitHub Actions ([`build.yml`](.github/workflows/build.yml)) and published on the [Releases](https://github.com/suleyman-kara/shock-convert/releases) page and at the website's fixed download address. v0.2.0 is the final release.
 
 ## License
 

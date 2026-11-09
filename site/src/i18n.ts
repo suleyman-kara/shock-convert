@@ -40,7 +40,7 @@ export const T = {
     title: "Install",
     version: "Version",
     winget: "With winget (recommended)",
-    wingetHint: "Paste into Windows Terminal or PowerShell. Update later with winget upgrade, remove with winget uninstall.",
+    wingetHint: "Paste into Windows Terminal or PowerShell. Remove later with winget uninstall SuleymanKara.ShockConvert.",
     setup: "Installer (.exe)",
     setupHint: "If you can't use winget. No admin rights needed; uninstalls cleanly from Apps.",
     portable: "Standalone exe",
@@ -50,7 +50,7 @@ export const T = {
     reqTitle: "Requirements",
     req: ["Windows 10 or 11 (64-bit)", "winget, which comes with Windows (App Installer)"],
     smartTitle: "\"Windows protected your PC\" warning",
-    smart: "Installing with winget avoids this warning. Shock Convert is not code-signed, so if you run the downloaded installer directly, Windows SmartScreen may show it: choose \"More info\" ▸ \"Run anyway\". You can compare the file against the SHA-256 checksum above.",
+    smart: "Shock Convert is not code-signed, so if you run the downloaded installer directly, Windows SmartScreen may show this warning: choose \"More info\" ▸ \"Run anyway\". You can compare the file against the SHA-256 checksum above.",
   },
   trust: {
     title: "Privacy and open source",
@@ -64,7 +64,6 @@ export const T = {
     title: "Frequently asked questions",
     items: [
       { q: "Is it paid?", a: "No. Shock Convert is free and open source." },
-      { q: "How do I update?", a: "Run winget upgrade SuleymanKara.ShockConvert, or winget upgrade --all to update everything." },
       { q: "Does uninstalling leave anything behind?", a: "No. Uninstalling removes the menu, registry entries, program folder and log file. Only your own edited presets.toml is kept." },
       { q: "Can it convert audio, video or PDF?", a: "No. Shock Convert focuses on images only. Earlier versions had audio, video and PDF support; it was removed to keep the tool small and simple." },
       { q: "I found a problem — where do I report it?", a: "On the Issues page on GitHub. Attaching %LOCALAPPDATA%\\ShockConvert\\log.txt helps a lot." },
